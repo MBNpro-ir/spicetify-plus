@@ -1,26 +1,25 @@
 # Spicetify Plus ✨ v1.0
 
-Welcome to **Spicetify Plus**, the ultimate all-in-one PowerShell script for managing your Spotify and Spicetify experience on Windows! 🚀
+Welcome to **Spicetify Plus**, the ultimate all-in-one tool for managing your Spotify and Spicetify experience on Windows! 🚀
 
-This powerful, menu-driven tool simplifies every step of the process, from installation to advanced configuration, making it accessible for both beginners and power users.
+This powerful, menu-driven tool simplifies every step of the process, from installation to advanced configuration, all wrapped in a simple `.exe` file for maximum convenience.
 
-Created with the help of AI and refined by [ME](https://github.com/MBNpro-ir).
+Created with the help of AI and refined by [MBNpro-ir](https://github.com/MBNpro-ir).
 
 ---
 
 ## 🌟 Features
 
-Spicetify Plus provides a user-friendly command-line interface to handle all your needs:
+Spicetify Plus provides a user-friendly interface to handle all your needs:
 
+-   **✨ One-Click Setup**: The easiest way to get started. Just run the `.exe` and you're good to go.
 -   **✅ Smart Spotify Installation**: Automatically detects if Spotify is installed (standard or Microsoft Store version). If not, it downloads and installs it silently.
--   **🎨 One-Click Spicetify Installation**: Installs the latest version of Spicetify-CLI with all necessary configurations handled automatically.
--   **🔧 Comprehensive Settings Menu**: A dedicated sub-menu to manage almost every Spicetify command and configuration option, including:
-    -   Core actions like `backup`, `apply`, and `restore`.
-    -   Toggling features like custom CSS, dev tools, and experimental settings.
-    -   Managing advanced launch flags for Spotify.
+-   **🎨 Effortless Spicetify Installation**: Installs the latest version of Spicetify-CLI with all necessary configurations handled automatically.
+-   **🔧 Comprehensive Settings Menu**: A dedicated sub-menu to manage almost every Spicetify command and configuration option, including core actions, feature toggles, and advanced launch flags.
+-   **🛍️ Marketplace Ready**: Includes an option to directly install the Spicetify Marketplace to browse and install themes and extensions from within Spotify.
 -   **🗑️ Clean Uninstallation**: Completely and safely remove Spotify and/or Spicetify, including clearing backup files and cleaning the system's PATH variable.
--   **🤖 Automated API Handling**: Comes pre-configured to use a GitHub API token, avoiding common rate-limit errors during installation and updates.
--   **👨‍💻 Admin-Ready**: Automatically handles Windows Administrator privileges, bypassing Spicetify's internal checks for a seamless experience.
+-   **🔐 Rate Limit Prevention**: Easily add your own GitHub API token within the script to avoid download rate limits from GitHub.
+-   **👨‍💻 Admin-Ready**: The executable automatically handles Windows Administrator privileges for a seamless experience.
 
 ---
 
@@ -49,7 +48,7 @@ Want to see the code or contribute?
     -   You can download the entire project as a `.zip` file by clicking [here](https://github.com/MBNpro-ir/spicetify-plus/archive/refs/heads/main.zip).
 
 2.  **Explore the files** 🛠️
-    -   Inside you will find the `spicetify-plus.ps1` PowerShell script and the `spicetify-plus-updater.bat` batch file that the `.exe` is based on.
+    -   Inside you will find the `spicetify-plus.ps1` PowerShell script that the `.exe` is based on.
 
 ---
 
@@ -73,16 +72,14 @@ This menu gives you granular control over Spicetify:
 
 ## ⚠️ Troubleshooting
 
-This script was designed to be robust, but here are solutions to common issues:
-
 ### GitHub API Rate Limit Error
 
 -   **Problem**: You see an error message like `API rate limit exceeded`. This happens when too many unauthenticated requests are made to GitHub from your IP address.
--   **Solution**: This script includes a built-in GitHub personal access token to prevent this. However, if this token expires or is revoked, you may encounter this issue. To fix it:
-    1.  [Generate a new Personal Access Token](https://github.com/settings/tokens) on GitHub (no scopes/permissions are required).
-    2.  Open the `spicetify-plus.ps1` script in a text editor.
-    3.  Find the line `$Global:githubToken = "..."` at the top of the script.
-    4.  Replace the old token with your new one.
+-   **Solution**: The script allows you to use a GitHub personal access token to prevent this.
+    1.  [Generate a new Personal Access Token](https://github.com/settings/tokens) on GitHub (no scopes/permissions are required for public repos).
+    2.  If you are a developer, open the `spicetify-plus.ps1` script in a text editor.
+    3.  Find the line `$Global:githubToken = ""` at the top of the script.
+    4.  Place your new token inside the quotes.
 
 ---
 
