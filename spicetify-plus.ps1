@@ -3,6 +3,123 @@ $ErrorActionPreference = 'SilentlyContinue'
 [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
 $Global:githubToken = ""
 
+# Function to get user-specific config directory
+function Get-SpicetifyPlusConfigPath {
+    $userName = $env:USERNAME
+    $configDir = "$env:USERPROFILE\users\$userName\spicetify plus"
+    if (-not (Test-Path -Path $configDir)) {
+        New-Item -Path $configDir -ItemType Directory -Force | Out-Null
+    }
+    return $configDir
+}
+
+# Function to get GitHub token file path
+function Get-GitHubTokenFilePath {
+    $configDir = Get-SpicetifyPlusConfigPath
+    return "$configDir\github_token.txt"
+}
+
+# Function to save GitHub token to file
+function Save-GitHubToken {
+    param([string]$Token)
+
+    if ([string]::IsNullOrWhiteSpace($Token)) {
+        return $false
+    }
+
+    try {
+        $tokenFilePath = Get-GitHubTokenFilePath
+        $Token | Out-File -FilePath $tokenFilePath -Encoding UTF8 -Force
+
+        # Also set the environment variable immediately
+        $env:GITHUB_TOKEN = $Token
+
+        return $true
+    }
+    catch {
+        Write-Host "Error saving GitHub token: $($_.Exception.Message)" -ForegroundColor 'Red'
+        return $false
+    }
+}
+
+# Function to load GitHub token from file
+function Load-GitHubToken {
+    try {
+        $tokenFilePath = Get-GitHubTokenFilePath
+        if (Test-Path -Path $tokenFilePath) {
+            $token = Get-Content -Path $tokenFilePath -Raw -Encoding UTF8
+            if ($token) {
+                $token = $token.Trim()
+                # Set environment variable when loading token
+                if (-not [string]::IsNullOrWhiteSpace($token)) {
+                    $env:GITHUB_TOKEN = $token
+                }
+                return $token
+            }
+        }
+        return ""
+    }
+    catch {
+        Write-Host "Error loading GitHub token: $($_.Exception.Message)" -ForegroundColor 'Red'
+        return ""
+    }
+}
+
+# Function to validate GitHub token
+function Test-GitHubTokenValidity {
+    param([string]$Token)
+
+    if ([string]::IsNullOrWhiteSpace($Token)) {
+        return @{ IsValid = $false; Message = "Token is empty" }
+    }
+
+    try {
+        $testUrl = 'https://api.github.com/user'
+        $testHeaders = @{
+            "Authorization" = "Bearer $Token"
+            "User-Agent" = "Spicetify-Plus/1.0"
+        }
+
+        # Add timeout to prevent hanging
+        $testResult = Invoke-RestMethod -Uri $testUrl -Headers $testHeaders -TimeoutSec 30 -ErrorAction Stop
+        return @{
+            IsValid = $true;
+            Message = "Valid token for user: $($testResult.login)";
+            UserInfo = $testResult
+        }
+    }
+    catch {
+        $errorMessage = $_.Exception.Message
+        Write-Host "Debug: Error details - $errorMessage" -ForegroundColor 'Gray'
+
+        if ($errorMessage -like "*401*" -or $errorMessage -like "*Bad credentials*" -or $errorMessage -like "*Unauthorized*") {
+            return @{ IsValid = $false; Message = "Invalid or expired token" }
+        }
+        elseif ($errorMessage -like "*403*" -or $errorMessage -like "*rate limit*") {
+            return @{ IsValid = $true; Message = "Rate limited but token appears valid" }
+        }
+        elseif ($errorMessage -like "*timeout*" -or $errorMessage -like "*timed out*") {
+            return @{ IsValid = $false; Message = "Connection timeout - please check your internet connection" }
+        }
+        else {
+            return @{ IsValid = $false; Message = "Network error: $errorMessage" }
+        }
+    }
+}
+
+# Function to update GitHub token environment variable
+function Update-GitHubTokenEnvironment {
+    if (-not [string]::IsNullOrWhiteSpace($Global:githubToken)) {
+        $env:GITHUB_TOKEN = $Global:githubToken
+    } else {
+        # Clear environment variable if no token
+        $env:GITHUB_TOKEN = $null
+    }
+}
+
+# Load GitHub token on script start
+$Global:githubToken = Load-GitHubToken
+
 function Write-Success {
     [CmdletBinding()] param()
     process { Write-Host -Object ' > OK' -ForegroundColor 'Green' }
@@ -30,35 +147,34 @@ function Test-GitHubToken {
     if ([string]::IsNullOrWhiteSpace($Global:githubToken)) {
         Write-Host " > NOT SET" -ForegroundColor 'Yellow'
         Write-Host "   Note: Script will work without token but may encounter GitHub rate limits." -ForegroundColor 'Gray'
-        Write-Host "   To avoid rate limits, add a GitHub Personal Access Token to line 4 of this script." -ForegroundColor 'Gray'
+        Write-Host "   To set a token, go to Settings > GitHub API Token Settings." -ForegroundColor 'Gray'
         return $false
     }
 
-    try {
-        $testUrl = 'https://api.github.com/user'
-        $testHeaders = @{ "Authorization" = "Bearer $Global:githubToken" }
-        $testResult = Invoke-RestMethod -Uri $testUrl -Headers $testHeaders -ErrorAction Stop
+    # Ensure environment variable is set
+    Update-GitHubTokenEnvironment
+
+    $validation = Test-GitHubTokenValidity -Token $Global:githubToken
+
+    if ($validation.IsValid) {
         Write-Host " > VALID" -ForegroundColor 'Green'
-        Write-Host "   GitHub API authenticated as: $($testResult.login)" -ForegroundColor 'Gray'
-        Write-Host "   Environment variable GITHUB_TOKEN is set for Spicetify CLI" -ForegroundColor 'Gray'
-        return $true
-    }
-    catch {
-        $errorMessage = $_.Exception.Message
-        if ($errorMessage -like "*401*" -or $errorMessage -like "*Bad credentials*" -or $errorMessage -like "*Unauthorized*") {
-            Write-Host " > INVALID" -ForegroundColor 'Red'
-            Write-Host "   Your GitHub token is expired or incorrect. Please update line 4 of this script." -ForegroundColor 'Gray'
+        if ($validation.UserInfo) {
+            Write-Host "   GitHub API authenticated as: $($validation.UserInfo.login)" -ForegroundColor 'Gray'
         }
-        elseif ($errorMessage -like "*403*" -or $errorMessage -like "*rate limit*") {
+        Write-Host "   Environment variable GITHUB_TOKEN is configured for Spicetify CLI" -ForegroundColor 'Gray'
+        return $true
+    } else {
+        if ($validation.Message -like "*Rate limited*") {
             Write-Host " > RATE LIMITED" -ForegroundColor 'Yellow'
             Write-Host "   GitHub API rate limit reached, but token appears to be valid." -ForegroundColor 'Gray'
+            Write-Host "   Environment variable GITHUB_TOKEN is configured for Spicetify CLI" -ForegroundColor 'Gray'
             return $true
+        } else {
+            Write-Host " > INVALID" -ForegroundColor 'Red'
+            Write-Host "   $($validation.Message)" -ForegroundColor 'Gray'
+            Write-Host "   Use Settings > GitHub API Token Settings to update your token." -ForegroundColor 'Gray'
+            return $false
         }
-        else {
-            Write-Host " > UNKNOWN" -ForegroundColor 'Yellow'
-            Write-Host "   Unable to verify token: $errorMessage" -ForegroundColor 'Gray'
-        }
-        return $false
     }
 }
 
@@ -676,10 +792,8 @@ function Invoke-Spicetify {
         [string[]]$Arguments
     )
     try {
-        # Set GitHub token as environment variable for Spicetify CLI
-        if (-not [string]::IsNullOrWhiteSpace($Global:githubToken)) {
-            $env:GITHUB_TOKEN = $Global:githubToken
-        }
+        # Ensure GitHub token environment variable is always up to date
+        Update-GitHubTokenEnvironment
         
         # Check if this is a backup or apply command that might hit GitHub API
         $isBackupOrApply = $Arguments[0] -eq 'backup' -or $Arguments[0] -eq 'apply'
@@ -729,10 +843,8 @@ function Invoke-SpicetifyWithOutput {
         [string[]]$Arguments
     )
     try {
-        # Set GitHub token as environment variable for Spicetify CLI
-        if (-not [string]::IsNullOrWhiteSpace($Global:githubToken)) {
-            $env:GITHUB_TOKEN = $Global:githubToken
-        }
+        # Ensure GitHub token environment variable is always up to date
+        Update-GitHubTokenEnvironment
         
         $spicetifyArgs = @('--bypass-admin') + $Arguments
         $output = (& spicetify $spicetifyArgs 2>&1 | Out-String).Trim()
@@ -1025,111 +1137,174 @@ function Get-InstalledItemsFromFileSystem {
 }
 
 function Manage-GitHubToken {
-    try {
-        Clear-Host
-        Write-Host "--- GitHub API Token Configuration ---" -ForegroundColor 'Yellow'
+    while ($true) {
+        try {
+            Clear-Host
+            Write-Host "--- GitHub API Token Configuration ---" -ForegroundColor 'Yellow'
 
-        # Show current token status
-        if (-not [string]::IsNullOrWhiteSpace($Global:githubToken)) {
-            $maskedToken = $Global:githubToken.Substring(0, 10) + "..." + $Global:githubToken.Substring($Global:githubToken.Length - 4)
-            Write-Host "Current token: $maskedToken" -ForegroundColor 'Cyan'
+            # Show current token status
+            if (-not [string]::IsNullOrWhiteSpace($Global:githubToken)) {
+                $maskedToken = $Global:githubToken.Substring(0, [Math]::Min(10, $Global:githubToken.Length)) + "..." +
+                              $Global:githubToken.Substring([Math]::Max(0, $Global:githubToken.Length - 4))
+                Write-Host "Current token: $maskedToken" -ForegroundColor 'Cyan'
 
-            # Check current token validity
-            try {
-                $testUrl = 'https://api.github.com/user'
-                $testHeaders = @{ "Authorization" = "Bearer $Global:githubToken" }
-                $testResult = Invoke-RestMethod -Uri $testUrl -Headers $testHeaders -ErrorAction Stop
-                Write-Host "Token status: Valid (authenticated as $($testResult.login))" -ForegroundColor 'Green'
+                # Test current token
+                $tokenTest = Test-GitHubTokenValidity -Token $Global:githubToken
+                if ($tokenTest.IsValid) {
+                    Write-Host "Token status: Valid" -ForegroundColor 'Green'
+                    if ($tokenTest.UserInfo) {
+                        Write-Host "  Authenticated as: $($tokenTest.UserInfo.login)" -ForegroundColor 'Cyan'
+                    }
+                } else {
+                    Write-Host "Token status: $($tokenTest.Message)" -ForegroundColor 'Red'
+                }
+
+                $configPath = Get-SpicetifyPlusConfigPath
+                Write-Host "Token stored in: $configPath" -ForegroundColor 'Gray'
+            } else {
+                Write-Host "Current token: Not set" -ForegroundColor 'Red'
             }
-            catch {
-                $errorMessage = $_.Exception.Message
-                if ($errorMessage -like "*401*" -or $errorMessage -like "*Bad credentials*") {
-                    Write-Host "Token status: Invalid or expired" -ForegroundColor 'Red'
-                }
-                elseif ($errorMessage -like "*403*" -or $errorMessage -like "*rate limit*") {
-                    Write-Host "Token status: Rate limited (but appears valid)" -ForegroundColor 'Yellow'
-                }
-                else {
-                    Write-Host "Token status: Unknown - $errorMessage" -ForegroundColor 'Gray'
-                }
-            }
-        } else {
-            Write-Host "Current token: Not set" -ForegroundColor 'Red'
-        }
 
-        Write-Host ""
-        Write-Host "Options:" -ForegroundColor 'White'
-        Write-Host "[1] Test current token"
-        Write-Host "[2] Show GitHub token info"
-        Write-Host "[3] Back to Settings Menu"
+            Write-Host ""
+            Write-Host "Options:" -ForegroundColor 'White'
+            Write-Host "[1] Set/Update GitHub API Token"
+            Write-Host "[2] Test current token"
+            Write-Host "[3] Show GitHub token info"
+            Write-Host "[4] Remove saved token"
+            Write-Host "[5] Back to Settings Menu"
 
-        $choice = Read-Host "Choose an option (1-3)"
+            $choice = Read-Host "Choose an option (1-5)"
 
-        switch ($choice) {
-            '1' {
-                if (-not [string]::IsNullOrWhiteSpace($Global:githubToken)) {
-                    Write-Host "Testing GitHub token..." -ForegroundColor 'Cyan'
-                    try {
-                        $testUrl = 'https://api.github.com/user'
-                        $testHeaders = @{ "Authorization" = "Bearer $Global:githubToken" }
-                        $testResult = Invoke-RestMethod -Uri $testUrl -Headers $testHeaders -ErrorAction Stop
+            switch ($choice) {
+                '1' {
+                    Write-Host ""
+                    Write-Host "Enter your GitHub Personal Access Token:" -ForegroundColor 'Cyan'
+                    Write-Host "Note: The token will be validated before saving." -ForegroundColor 'Gray'
+
+                    # Use regular Read-Host for better compatibility
+                    $newTokenPlain = Read-Host "GitHub Token"
+
+                    if ([string]::IsNullOrWhiteSpace($newTokenPlain)) {
+                        Write-Host "No token entered. Operation cancelled." -ForegroundColor 'Yellow'
+                        Press-EnterToContinue
+                        continue
+                    }
+
+                    Write-Host "Validating token..." -ForegroundColor 'Cyan'
+                    Write-Host "This may take a few seconds..." -ForegroundColor 'Gray'
+
+                    $validation = Test-GitHubTokenValidity -Token $newTokenPlain
+
+                    if ($validation.IsValid) {
                         Write-Host "Token is valid!" -ForegroundColor 'Green'
-                        Write-Host "  Authenticated as: $($testResult.login)" -ForegroundColor 'Cyan'
-                        Write-Host "  Account type: $($testResult.type)" -ForegroundColor 'Cyan'
-                        if ($testResult.plan) {
-                            Write-Host "  Plan: $($testResult.plan.name)" -ForegroundColor 'Cyan'
+                        if ($validation.UserInfo) {
+                            Write-Host "  Authenticated as: $($validation.UserInfo.login)" -ForegroundColor 'Cyan'
+                            Write-Host "  Account type: $($validation.UserInfo.type)" -ForegroundColor 'Cyan'
                         }
+
+                        Write-Host "Saving token..." -ForegroundColor 'Cyan'
+                        if (Save-GitHubToken -Token $newTokenPlain) {
+                            $Global:githubToken = $newTokenPlain
+                            # Ensure environment variable is set immediately
+                            Update-GitHubTokenEnvironment
+                            Write-Host "Token saved successfully!" -ForegroundColor 'Green'
+                            $configPath = Get-SpicetifyPlusConfigPath
+                            Write-Host "Token stored in: $configPath" -ForegroundColor 'Gray'
+                            Write-Host "Environment variable GITHUB_TOKEN has been updated." -ForegroundColor 'Gray'
+                        } else {
+                            Write-Host "Failed to save token." -ForegroundColor 'Red'
+                        }
+                    } else {
+                        Write-Host "Token validation failed: $($validation.Message)" -ForegroundColor 'Red'
+                        Write-Host "Token was not saved. Please check your token and try again." -ForegroundColor 'Yellow'
+                        Write-Host ""
+                        Write-Host "Common issues:" -ForegroundColor 'Yellow'
+                        Write-Host "- Make sure you copied the complete token" -ForegroundColor 'Gray'
+                        Write-Host "- Check your internet connection" -ForegroundColor 'Gray'
+                        Write-Host "- Verify the token hasn't expired" -ForegroundColor 'Gray'
                     }
-                    catch {
-                        $errorMessage = $_.Exception.Message
-                        Write-Host "Token test failed!" -ForegroundColor 'Red'
-                        if ($errorMessage -like "*401*" -or $errorMessage -like "*Bad credentials*") {
-                            Write-Host "  Reason: Invalid or expired token" -ForegroundColor 'Red'
+
+                    # Clear the plain text token from memory
+                    $newTokenPlain = $null
+                    Press-EnterToContinue
+                }
+                '2' {
+                    if (-not [string]::IsNullOrWhiteSpace($Global:githubToken)) {
+                        Write-Host "Testing GitHub token..." -ForegroundColor 'Cyan'
+                        $validation = Test-GitHubTokenValidity -Token $Global:githubToken
+
+                        if ($validation.IsValid) {
+                            Write-Host "Token is valid!" -ForegroundColor 'Green'
+                            if ($validation.UserInfo) {
+                                Write-Host "  Authenticated as: $($validation.UserInfo.login)" -ForegroundColor 'Cyan'
+                                Write-Host "  Account type: $($validation.UserInfo.type)" -ForegroundColor 'Cyan'
+                                if ($validation.UserInfo.plan) {
+                                    Write-Host "  Plan: $($validation.UserInfo.plan.name)" -ForegroundColor 'Cyan'
+                                }
+                            }
+                        } else {
+                            Write-Host "Token test failed: $($validation.Message)" -ForegroundColor 'Red'
                         }
-                        elseif ($errorMessage -like "*403*" -or $errorMessage -like "*rate limit*") {
-                            Write-Host "  Reason: Rate limited (token may still be valid)" -ForegroundColor 'Yellow'
-                        }
-                        else {
-                            Write-Host "  Reason: $errorMessage" -ForegroundColor 'Red'
-                        }
+                    } else {
+                        Write-Warning "No GitHub token available to test."
                     }
-                } else {
-                    Write-Warning "No GitHub token available to test."
+                    Press-EnterToContinue
                 }
-                Press-EnterToContinue
-            }
-            '2' {
-                Write-Host "GitHub Token Information:" -ForegroundColor 'Cyan'
-                Write-Host "To create a GitHub Personal Access Token:" -ForegroundColor 'White'
-                Write-Host "1. Go to: https://github.com/settings/tokens" -ForegroundColor 'Gray'
-                Write-Host "2. Click Generate new token (classic)" -ForegroundColor 'Gray'
-                Write-Host "3. Give it a name (e.g., Spicetify Script)" -ForegroundColor 'Gray'
-                Write-Host "4. Set expiration (optional, but recommended)" -ForegroundColor 'Gray'
-                Write-Host "5. No scopes/permissions are required for public repos" -ForegroundColor 'Gray'
-                Write-Host "6. Click Generate token and copy the token" -ForegroundColor 'Gray'
-                Write-Host "7. Update line 4 of this script with your token" -ForegroundColor 'Gray'
-                Write-Host ""
-                Write-Host "Current script token: " -NoNewline
-                if (-not [string]::IsNullOrWhiteSpace($Global:githubToken)) {
-                    $maskedToken = $Global:githubToken.Substring(0, 10) + "..." + $Global:githubToken.Substring($Global:githubToken.Length - 4)
-                    Write-Host $maskedToken -ForegroundColor 'Cyan'
-                } else {
-                    Write-Host "Not set" -ForegroundColor 'Red'
+                '3' {
+                    Write-Host "GitHub Token Information:" -ForegroundColor 'Cyan'
+                    Write-Host "To create a GitHub Personal Access Token:" -ForegroundColor 'White'
+                    Write-Host "1. Go to: https://github.com/settings/tokens" -ForegroundColor 'Gray'
+                    Write-Host "2. Click 'Generate new token (classic)'" -ForegroundColor 'Gray'
+                    Write-Host "3. Give it a name (e.g., 'Spicetify Plus')" -ForegroundColor 'Gray'
+                    Write-Host "4. Set expiration (optional, but recommended)" -ForegroundColor 'Gray'
+                    Write-Host "5. No scopes/permissions are required for public repos" -ForegroundColor 'Gray'
+                    Write-Host "6. Click 'Generate token' and copy the token" -ForegroundColor 'Gray'
+                    Write-Host "7. Use option [1] above to set your token" -ForegroundColor 'Gray'
+                    Write-Host ""
+                    Write-Host "Benefits of using a GitHub token:" -ForegroundColor 'White'
+                    Write-Host "- Avoid GitHub API rate limits" -ForegroundColor 'Gray'
+                    Write-Host "- Faster downloads from GitHub" -ForegroundColor 'Gray'
+                    Write-Host "- More reliable operation" -ForegroundColor 'Gray'
+                    Press-EnterToContinue
                 }
-                Press-EnterToContinue
-            }
-            '3' {
-                return
-            }
-            default {
-                Write-Warning "Invalid choice."
-                Press-EnterToContinue
+                '4' {
+                    if (-not [string]::IsNullOrWhiteSpace($Global:githubToken)) {
+                        $confirm = Read-Host "Are you sure you want to remove the saved token? (y/N)"
+                        if ($confirm -eq 'y' -or $confirm -eq 'Y') {
+                            try {
+                                $tokenFilePath = Get-GitHubTokenFilePath
+                                if (Test-Path -Path $tokenFilePath) {
+                                    Remove-Item -Path $tokenFilePath -Force
+                                }
+                                $Global:githubToken = ""
+                                # Clear environment variable
+                                $env:GITHUB_TOKEN = $null
+                                Write-Host "Token removed successfully." -ForegroundColor 'Green'
+                            }
+                            catch {
+                                Write-Host "Error removing token: $($_.Exception.Message)" -ForegroundColor 'Red'
+                            }
+                        } else {
+                            Write-Host "Operation cancelled." -ForegroundColor 'Yellow'
+                        }
+                    } else {
+                        Write-Host "No token to remove." -ForegroundColor 'Yellow'
+                    }
+                    Press-EnterToContinue
+                }
+                '5' {
+                    return
+                }
+                default {
+                    Write-Warning "Invalid choice."
+                    Press-EnterToContinue
+                }
             }
         }
-    }
-    catch {
-        Write-Error-Message $_.Exception.Message
-        Press-EnterToContinue
+        catch {
+            Write-Error-Message $_.Exception.Message
+            Press-EnterToContinue
+        }
     }
 }
 
