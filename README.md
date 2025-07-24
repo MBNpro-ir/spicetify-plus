@@ -1,4 +1,6 @@
-# Spicetify Plus ✨ v1.0
+<img width="1600" height="900" alt="image" src="https://github.com/user-attachments/assets/a868506b-5300-4e39-8256-caf5c2bd2274" />
+
+# Spicetify Plus ✨
 
 Welcome to **Spicetify Plus**, the ultimate all-in-one tool for managing your Spotify and Spicetify experience on Windows! 🚀
 
