@@ -3,6 +3,9 @@ $ErrorActionPreference = 'SilentlyContinue'
 [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
 $Global:githubToken = ""
 
+# Global variable to track if changes have been applied in current session
+$Global:changesApplied = $false
+
 # Function to get user-specific config directory
 function Get-SpicetifyPlusConfigPath {
     $userName = $env:USERNAME
@@ -182,6 +185,22 @@ function Press-EnterToContinue {
     Read-Host -Prompt "Press Enter to return to the menu..."
 }
 
+function Apply-SpicetifyChanges {
+    param(
+        [string]$AppName = "changes"
+    )
+
+    Write-Host "Applying changes automatically..." -ForegroundColor 'Yellow'
+    try {
+        Invoke-Spicetify "backup" "apply" | Out-Null
+        Write-Host "$AppName activated successfully!" -ForegroundColor 'Green'
+        return $true
+    } catch {
+        Write-Warning "Failed to apply changes automatically. You may need to run 'Backup & Apply Changes' manually."
+        return $false
+    }
+}
+
 function Install-Spotify {
     # FINAL, CORRECTED FIX: Initialize the variable OUTSIDE and BEFORE the try block.
     $tempFilePath = $null
@@ -222,6 +241,45 @@ function Install-Spotify {
         if ($tempFilePath -and (Test-Path -Path $tempFilePath)) {
             Remove-Item -Path $tempFilePath -Force
         }
+    }
+}
+
+function Update-Spotify {
+    try {
+        Write-Host "Checking for Spotify updates..." -ForegroundColor 'Cyan'
+
+        # Check if Spotify is installed
+        $spotifyExeInstalled = $false
+        $regPaths = @('HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\*', 'HKCU:\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\*')
+        foreach ($path in $regPaths) {
+            if (Get-ItemProperty $path -ErrorAction SilentlyContinue | Where-Object { $_.DisplayName -like '*Spotify*' }) {
+                $spotifyExeInstalled = $true
+                break
+            }
+        }
+        $spotifyUwpInstalled = Get-AppxPackage -Name "*SpotifyMusic*" -ErrorAction SilentlyContinue
+
+        if (-not ($spotifyExeInstalled -or $spotifyUwpInstalled)) {
+            Write-Warning "Spotify is not installed. Use option [1] to install Spotify first."
+            return
+        }
+
+        if ($spotifyUwpInstalled) {
+            Write-Host "Spotify (Microsoft Store version) updates automatically." -ForegroundColor 'Green'
+            Write-Host "No manual update required." -ForegroundColor 'Cyan'
+            return
+        }
+
+        # For desktop version, Spotify updates itself automatically
+        # We can force a reinstall to get the latest version
+        Write-Host "Spotify desktop version updates automatically when you restart the app." -ForegroundColor 'Green'
+        Write-Host "To force update, you can:" -ForegroundColor 'Cyan'
+        Write-Host "1. Close Spotify completely" -ForegroundColor 'Gray'
+        Write-Host "2. Restart Spotify - it will check for updates automatically" -ForegroundColor 'Gray'
+        Write-Host "3. Or use option [3] to remove and then [1] to reinstall with latest version" -ForegroundColor 'Gray'
+    }
+    catch {
+        Write-Error-Message $_.Exception.Message
     }
 }
 
@@ -466,12 +524,7 @@ function Install-Spicetify {
     try {
         if (Get-Command -Name 'spicetify' -ErrorAction SilentlyContinue) {
             Write-Host "Spicetify is already installed." -ForegroundColor 'Green'
-
-            # Ask about marketplace installation
-            $installMarketplace = Read-Host "Do you want to install Spicetify Marketplace? (y/n)"
-            if ($installMarketplace -eq 'y' -or $installMarketplace -eq 'Y') {
-                Install-Marketplace
-            }
+            Write-Host "Use option [5] to install Spicetify Marketplace or [6] to update Spicetify." -ForegroundColor 'Cyan'
             return
         }
 
@@ -503,14 +556,94 @@ function Install-Spicetify {
         Write-Host "`nRun" -NoNewline
         Write-Host ' spicetify -h ' -NoNewline -ForegroundColor 'Cyan'
         Write-Host 'to get started'
+        Write-Host "`nTo install Spicetify Marketplace, use option [5] from the main menu." -ForegroundColor 'Cyan'
+    }
+    catch {
+        Write-Error-Message $_.Exception.Message
+    }
+}
 
-        # Ask about marketplace installation
-        $installMarketplace = Read-Host "`nDo you also want to install Spicetify Marketplace? It will become available within the Spotify client, where you can easily install themes and extensions. (y/n)"
-        if ($installMarketplace -eq 'y' -or $installMarketplace -eq 'Y') {
-            Install-Marketplace
-        } else {
-            Write-Host 'Spicetify Marketplace installation skipped' -ForegroundColor 'Yellow'
+function Update-Spicetify {
+    try {
+        if (-not (Get-Command -Name 'spicetify' -ErrorAction SilentlyContinue)) {
+            Write-Warning "Spicetify is not installed. Use option [4] to install Spicetify first."
+            return
         }
+
+        Write-Host "Checking for Spicetify updates..." -ForegroundColor 'Cyan'
+
+        # Get current version
+        $currentVersionOutput = Invoke-SpicetifyWithOutput "version"
+        $currentVersion = ""
+        if ($currentVersionOutput -match "spicetify version (\d+\.\d+\.\d+)") {
+            $currentVersion = $matches[1]
+            Write-Host "Current Spicetify version: v$currentVersion" -ForegroundColor 'Gray'
+        } else {
+            Write-Host "Could not determine current Spicetify version." -ForegroundColor 'Yellow'
+        }
+
+        # Get latest version from GitHub
+        Write-Host "Fetching latest Spicetify version..." -NoNewline
+        $latestVersion = ""
+        try {
+            if (-not [string]::IsNullOrWhiteSpace($Global:githubToken)) {
+                $headers = @{ "Authorization" = "Bearer $Global:githubToken" }
+                $latestRelease = Invoke-RestMethod -Uri 'https://api.github.com/repos/spicetify/cli/releases/latest' -Headers $headers -ErrorAction Stop
+            } else {
+                $latestRelease = Invoke-RestMethod -Uri 'https://api.github.com/repos/spicetify/cli/releases/latest' -ErrorAction Stop
+            }
+            $latestVersion = $latestRelease.tag_name -replace 'v', ''
+            Write-Success
+            Write-Host "Latest Spicetify version: v$latestVersion" -ForegroundColor 'Gray'
+        }
+        catch {
+            Write-Host " > FAILED" -ForegroundColor 'Red'
+            Write-Warning "Could not fetch latest version from GitHub. Error: $($_.Exception.Message)"
+            return
+        }
+
+        # Compare versions
+        if ($currentVersion -eq $latestVersion) {
+            Write-Host "Spicetify is already up to date! (v$currentVersion)" -ForegroundColor 'Green'
+            return
+        }
+
+        if ([string]::IsNullOrWhiteSpace($currentVersion)) {
+            Write-Host "Unable to compare versions. Proceeding with update..." -ForegroundColor 'Yellow'
+        } else {
+            Write-Host "Update available: v$currentVersion -> v$latestVersion" -ForegroundColor 'Cyan'
+        }
+
+        # Perform update
+        Write-Host "Updating Spicetify..." -ForegroundColor 'Cyan'
+        $spicetifyFolderPath = "$env:LOCALAPPDATA\spicetify"
+
+        # Backup current config if exists
+        $configBackupPath = "$env:TEMP\spicetify_config_backup.ini"
+        $configPath = "$env:APPDATA\spicetify\config-xpui.ini"
+        if (Test-Path $configPath) {
+            Write-Host "Backing up current configuration..." -NoNewline
+            Copy-Item -Path $configPath -Destination $configBackupPath -Force -ErrorAction SilentlyContinue
+            Write-Success
+        }
+
+        # Download and install latest version
+        $archivePath = Get-Spicetify
+        Write-Host 'Extracting updated spicetify...' -NoNewline
+        Expand-Archive -Path $archivePath -DestinationPath $spicetifyFolderPath -Force -ErrorAction Stop
+        Write-Success
+        Remove-Item -Path $archivePath -Force -ErrorAction SilentlyContinue
+
+        # Restore config if backup exists
+        if (Test-Path $configBackupPath) {
+            Write-Host "Restoring configuration..." -NoNewline
+            Copy-Item -Path $configBackupPath -Destination $configPath -Force -ErrorAction SilentlyContinue
+            Remove-Item -Path $configBackupPath -Force -ErrorAction SilentlyContinue
+            Write-Success
+        }
+
+        Write-Host "Spicetify has been successfully updated to v$latestVersion!" -ForegroundColor 'Green'
+        Write-Host "Note: You may need to run 'Backup & Apply Changes' from Settings to apply updates." -ForegroundColor 'Cyan'
     }
     catch {
         Write-Error-Message $_.Exception.Message
@@ -742,16 +875,35 @@ function Remove-Spicetify {
         }
         Write-Host "Removing Spicetify..." -ForegroundColor 'Cyan'
         Write-Host "Step 1: Restoring Spotify to its original state..." -NoNewline
-        Invoke-Spicetify "restore" | Out-Null
+        # Use quiet flag to avoid GitHub API calls
+        Invoke-Spicetify "-q" "restore" | Out-Null
         Write-Success
-        $spicetifyFolderPath = "$env:LOCALAPPDATA\spicetify"
-        Write-Host "Step 2: Removing Spicetify files from '$spicetifyFolderPath'..." -NoNewline
-        Remove-Item -Path $spicetifyFolderPath -Recurse -Force -ErrorAction Stop
+
+        # Remove both Local and Roaming spicetify folders
+        $spicetifyLocalPath = "$env:LOCALAPPDATA\spicetify"
+        $spicetifyRoamingPath = "$env:APPDATA\spicetify"
+
+        Write-Host "Step 2: Removing Spicetify files from Local folder..." -NoNewline
+        if (Test-Path -Path $spicetifyLocalPath) {
+            Remove-Item -Path $spicetifyLocalPath -Recurse -Force -ErrorAction Stop
+        }
         Write-Success
-        Write-Host "Step 3: Cleaning Spicetify from your PATH environment variable..." -NoNewline
+
+        Write-Host "Step 3: Removing Spicetify files from Roaming folder..." -NoNewline
+        if (Test-Path -Path $spicetifyRoamingPath) {
+            Remove-Item -Path $spicetifyRoamingPath -Recurse -Force -ErrorAction Stop
+        }
+        Write-Success
+
+        Write-Host "Step 4: Cleaning Spicetify from your PATH environment variable..." -NoNewline
         $user = [EnvironmentVariableTarget]::User
         $currentPath = [Environment]::GetEnvironmentVariable('PATH', $user)
-        $newPath = ($currentPath.Split(';') | Where-Object { $_ -notlike "*$spicetifyFolderPath*" }) -join ';'
+        # Remove both possible spicetify paths from PATH
+        $newPath = ($currentPath.Split(';') | Where-Object {
+            $_ -notlike "*$spicetifyLocalPath*" -and
+            $_ -notlike "*$spicetifyRoamingPath*" -and
+            $_ -notlike "*spicetify*"
+        }) -join ';'
         [Environment]::SetEnvironmentVariable('PATH', $newPath, $user)
         $env:PATH = $newPath
         Write-Success
@@ -919,20 +1071,25 @@ function Invoke-SafeSpicetifyApply {
 function Show-MainMenu {
     Clear-Host
     Write-Host "+==============================================================+" -ForegroundColor 'Cyan'
-    Write-Host "|        Welcome to the All-in-One Spicetify Manager           |" -ForegroundColor 'White'
-    Write-Host "|     This script helps you install and manage Spotify         |" -ForegroundColor 'Gray'
-    Write-Host "|             and the Spicetify customization tool.            |" -ForegroundColor 'Gray'
+    Write-Host "|     Welcome to the All-in-One Spicetify Manager BY MBN       |" -ForegroundColor 'White'
+    Write-Host "|      This script helps you install and manage Spotify        |" -ForegroundColor 'Gray'
+    Write-Host "|           and the Spicetify customization tool.              |" -ForegroundColor 'Gray'
     Write-Host "+==============================================================+" -ForegroundColor 'Cyan'
-    Write-Host "|                                                              |" -ForegroundColor 'Cyan'
+    Write-Host "|  Spotify :                                                   |" -ForegroundColor 'Yellow'
     Write-Host "|  [1] Install Spotify                                         |" -ForegroundColor 'White'
-    Write-Host "|  [2] Install Spicetify                                       |" -ForegroundColor 'White'
-    Write-Host "|  [3] Install Spicetify Marketplace                           |" -ForegroundColor 'White'
-    Write-Host "|  [4] Spicetify Settings & Actions                            |" -ForegroundColor 'White'
+    Write-Host "|  [2] Update Spotify                                          |" -ForegroundColor 'White'
+    Write-Host "|  [3] Remove Spotify                                          |" -ForegroundColor 'White'
     Write-Host "|                                                              |" -ForegroundColor 'Cyan'
-    Write-Host "|  [5] Remove Spotify                                          |" -ForegroundColor 'Yellow'
-    Write-Host "|  [6] Remove Spicetify                                        |" -ForegroundColor 'Yellow'
+    Write-Host "|  Spicetify :                                                 |" -ForegroundColor 'Green'
+    Write-Host "|  [4] Install Spicetify                                       |" -ForegroundColor 'White'
+    Write-Host "|  [5] Install Spicetify Marketplace                           |" -ForegroundColor 'White'
+    Write-Host "|  [6] Update Spicetify                                        |" -ForegroundColor 'White'
+    Write-Host "|  [7] Spicetify Settings                                      |" -ForegroundColor 'White'
+    Write-Host "|  [8] Remove Spicetify                                        |" -ForegroundColor 'White'
     Write-Host "|                                                              |" -ForegroundColor 'Cyan'
-    Write-Host "|  [7] Exit                                                    |" -ForegroundColor 'White'
+    Write-Host "|  [9] GitHub API Token Settings                               |" -ForegroundColor 'Magenta'
+    Write-Host "|                                                              |" -ForegroundColor 'Cyan'
+    Write-Host "|  [0] Exit                                                    |" -ForegroundColor 'White'
     Write-Host "|                                                              |" -ForegroundColor 'Cyan'
     Write-Host "+==============================================================+" -ForegroundColor 'Cyan'
 }
@@ -957,12 +1114,11 @@ function Show-SettingsMenu {
     Write-Host "|     [8] Manage Toggles (CSS, Sentry, etc.)                   |" -ForegroundColor 'White'
     Write-Host "|     [9] Manage Text/Path Settings (Theme, etc.)              |" -ForegroundColor 'White'
     Write-Host "|    [10] Manage Spotify Launch Flags                          |" -ForegroundColor 'White'
-    Write-Host "|    [11] GitHub API Token Settings                            |" -ForegroundColor 'White'
     Write-Host "|                                                              |" -ForegroundColor 'Magenta'
     Write-Host "|   Debug:                                                     |" -ForegroundColor 'Gray'
-    Write-Host "|    [12] Show Raw Spicetify Config Output                     |" -ForegroundColor 'Yellow'
+    Write-Host "|    [11] Show Raw Spicetify Config Output                     |" -ForegroundColor 'Yellow'
     Write-Host "|                                                              |" -ForegroundColor 'Magenta'
-    Write-Host "|    [13] Back to Main Menu                                    |" -ForegroundColor 'White'
+    Write-Host "|    [12] Back to Main Menu                                    |" -ForegroundColor 'White'
     Write-Host "+==============================================================+" -ForegroundColor 'Magenta'
 }
 
@@ -1048,43 +1204,76 @@ function Get-SpicetifyConfigValue {
         [string]$ConfigKey
     )
 
-    # First try to get the raw config output
-    $configOutput = Invoke-SpicetifyWithOutput "config" $ConfigKey
+    # Get the full config output and parse it properly
+    $fullConfigOutput = Invoke-SpicetifyWithOutput "config"
     $configValue = ""
     $configArray = @()
 
-    if ($configOutput) {
-        # Parse the config output more reliably
-        $lines = $configOutput -split "`r?`n"
+    if ($fullConfigOutput) {
+        # Parse the full config output to find our key
+        $lines = $fullConfigOutput -split "`r?`n"
         foreach ($line in $lines) {
             $line = $line.Trim()
+            # Look for lines that start with our config key followed by = or space
             if ($line -match "^$([regex]::Escape($ConfigKey))\s*=\s*(.*)$") {
                 $configValue = $matches[1].Trim()
                 break
             } elseif ($line -match "^$([regex]::Escape($ConfigKey))\s+(.*)$") {
                 $configValue = $matches[1].Trim()
                 break
-            } elseif ($line -and -not $line.StartsWith($ConfigKey) -and $configOutput.StartsWith($ConfigKey)) {
-                # If the line doesn't start with the config key but the whole output does, this might be the value
-                $configValue = $line
-                break
             }
         }
 
-        # Parse pipe-separated values
+        # Parse pipe-separated values only if we found a real value
         if ($configValue -and $configValue -ne "" -and $configValue -ne $ConfigKey) {
             $configArray = $configValue.Split('|') | ForEach-Object { $_.Trim() } | Where-Object { $_ -and $_ -ne "" }
         }
     }
 
-    # If we didn't get anything from config command, try to get from file system
-    if ($configArray.Count -eq 0) {
-        $configArray = Get-InstalledItemsFromFileSystem $ConfigKey
-    }
-
+    # Only return what's actually configured in Spicetify config
     return @{
         RawValue = $configValue
         Array = $configArray
+    }
+}
+
+function Test-SpicetifyApplied {
+    # Check if changes have been applied in current session first
+    if ($Global:changesApplied) {
+        return $true
+    }
+
+    # Simple and reliable method to check if Spicetify has been applied
+    try {
+        # Method 1: Check if backup files exist (most reliable indicator)
+        $backupPaths = @(
+            "$env:APPDATA\Spotify\Apps\xpui.spa.bak",
+            "$env:LOCALAPPDATA\Spotify\Apps\xpui.spa.bak"
+        )
+
+        foreach ($backupPath in $backupPaths) {
+            if (Test-Path $backupPath) {
+                $Global:changesApplied = $true
+                return $true
+            }
+        }
+
+        # Method 2: Check if inject_css is enabled and there are extensions/apps configured
+        $configOutput = Invoke-SpicetifyWithOutput "config"
+        $cssEnabled = $configOutput -like "*inject_css*1*"
+        $hasExtensions = $configOutput -like "*extensions*" -and $configOutput -notlike "*extensions =*" -and $configOutput -notlike "*extensions  *"
+        $hasCustomApps = $configOutput -like "*custom_apps*" -and $configOutput -notlike "*custom_apps =*" -and $configOutput -notlike "*custom_apps  *"
+
+        # If CSS is enabled and we have extensions or custom apps, likely applied
+        if ($cssEnabled -and ($hasExtensions -or $hasCustomApps)) {
+            $Global:changesApplied = $true
+            return $true
+        }
+
+        return $false
+    }
+    catch {
+        return $false
     }
 }
 
@@ -1314,13 +1503,17 @@ function Manage-Extensions {
             Clear-Host
             Write-Host "--- Extensions Management ---" -ForegroundColor 'Yellow'
 
-            # Get current extensions
+            # Get current extensions and check if applied
             $extensionsConfig = Get-SpicetifyConfigValue "extensions"
             $currentExtensions = $extensionsConfig.Array
+            $isApplied = Test-SpicetifyApplied
 
             Write-Host "Current Extensions: " -NoNewline
             if ($currentExtensions.Count -gt 0) {
-                Write-Host ($currentExtensions -join ' | ') -ForegroundColor 'Cyan'
+                $statusText = if ($isApplied) { "APPLIED" } else { "NOT APPLIED" }
+                $statusColor = if ($isApplied) { 'Green' } else { 'Yellow' }
+                Write-Host ($currentExtensions -join ' | ') -NoNewline -ForegroundColor 'Cyan'
+                Write-Host " [$statusText]" -ForegroundColor $statusColor
             } else {
                 Write-Host "(No extensions installed)" -ForegroundColor 'Gray'
             }
@@ -1329,10 +1522,35 @@ function Manage-Extensions {
             Write-Host "[2] Remove Extension"
             Write-Host "[3] List Available Extensions"
             Write-Host "[4] Clear All Extensions"
-            Write-Host "[5] Back to Settings Menu"
+            if ($currentExtensions.Count -gt 0 -and -not $isApplied) {
+                Write-Host "[5] Apply New Changes" -ForegroundColor 'Green'
+                Write-Host "[6] Back to Settings Menu"
+            } else {
+                Write-Host "[5] Back to Settings Menu"
+            }
             $choice = Read-Host -Prompt "Choose an option"
 
-            if ($choice -eq '5') { break }
+            # Determine the correct back option based on whether Apply button is shown
+            $backOption = if ($currentExtensions.Count -gt 0 -and -not $isApplied) { '6' } else { '5' }
+
+            if ($choice -eq $backOption) { break }
+            elseif ($choice -eq '5' -and $currentExtensions.Count -gt 0 -and -not $isApplied) {
+                # Apply new changes
+                Write-Host "Applying extension changes..." -ForegroundColor 'Cyan'
+                if (Invoke-SafeSpicetifyBackup) {
+                    if (Invoke-SafeSpicetifyApply) {
+                        Write-Host "Extensions applied successfully!" -ForegroundColor 'Green'
+                        $Global:changesApplied = $true
+                    } else {
+                        Write-Host "Apply completed but there may be issues." -ForegroundColor 'Yellow'
+                        $Global:changesApplied = $true
+                    }
+                } else {
+                    Write-Host "Backup failed - skipping apply." -ForegroundColor 'Red'
+                }
+                Press-EnterToContinue
+                continue
+            }
             elseif ($choice -eq '1') {
                 $availableExtensions = @(
                     @{ Name = "autoSkipVideo.js"; Description = "Auto skip videos that can't play in your region"; Category = "Main" },
@@ -1351,6 +1569,11 @@ function Manage-Extensions {
                     @{ Name = "queueAll.js"; Description = "Add 'Queue All' button to carousels for easy bulk queuing"; Category = "Legacy" }
                 )
 
+                # Filter out any null or invalid extensions
+                $availableExtensions = $availableExtensions | Where-Object { $_ -and $_.Name -and $_.Description -and $_.Category }
+
+
+
                 Write-Host "--- Available Extensions ---" -ForegroundColor 'Yellow'
                 Write-Host ""
                 # Display all extensions with sequential numbering
@@ -1360,8 +1583,13 @@ function Manage-Extensions {
                 $mainExtensions = $availableExtensions | Where-Object { $_.Category -eq "Main" }
                 for ($j = 0; $j -lt $mainExtensions.Length; $j++) {
                     $isInstalled = $currentExtensions -contains $mainExtensions[$j].Name
-                    $status = if ($isInstalled) { "[INSTALLED]" } else { "[NOT INSTALLED]" }
-                    $statusColor = if ($isInstalled) { 'Green' } else { 'Gray' }
+                    if ($isInstalled) {
+                        $status = if ($isApplied) { "[INSTALLED]" } else { "[INSTALLED - Not Applied]" }
+                        $statusColor = if ($isApplied) { 'Green' } else { 'Yellow' }
+                    } else {
+                        $status = "[NOT INSTALLED]"
+                        $statusColor = 'Gray'
+                    }
                     Write-Host "[$displayIndex] $($mainExtensions[$j].Name) " -NoNewline -ForegroundColor 'Cyan'
                     Write-Host $status -NoNewline -ForegroundColor $statusColor
                     Write-Host " - $($mainExtensions[$j].Description)" -ForegroundColor 'Gray'
@@ -1372,11 +1600,23 @@ function Manage-Extensions {
                 $communityExtensions = $availableExtensions | Where-Object { $_.Category -eq "Community" }
                 if ($communityExtensions.Length -gt 0) {
                     for ($j = 0; $j -lt $communityExtensions.Length; $j++) {
-                        $extName = $communityExtensions[$j].Name
-                        $extDesc = $communityExtensions[$j].Description
+                        $ext = $communityExtensions[$j]
+                        $extName = $ext.Name
+                        $extDesc = $ext.Description
+
+                        # Skip if extension data is invalid but still show valid ones
+                        if (-not $extName -or $extName -eq "") {
+                            continue
+                        }
+
                         $isInstalled = $currentExtensions -contains $extName
-                        $status = if ($isInstalled) { "[INSTALLED]" } else { "[NOT INSTALLED]" }
-                        $statusColor = if ($isInstalled) { 'Green' } else { 'Gray' }
+                        if ($isInstalled) {
+                            $status = if ($isApplied) { "[INSTALLED]" } else { "[INSTALLED - Not Applied]" }
+                            $statusColor = if ($isApplied) { 'Green' } else { 'Yellow' }
+                        } else {
+                            $status = "[NOT INSTALLED]"
+                            $statusColor = 'Gray'
+                        }
                         Write-Host "[$displayIndex] $extName " -NoNewline -ForegroundColor 'Cyan'
                         Write-Host $status -NoNewline -ForegroundColor $statusColor
                         Write-Host " - $extDesc" -ForegroundColor 'Gray'
@@ -1390,8 +1630,13 @@ function Manage-Extensions {
                 $legacyExtensions = $availableExtensions | Where-Object { $_.Category -eq "Legacy" }
                 for ($j = 0; $j -lt $legacyExtensions.Length; $j++) {
                     $isInstalled = $currentExtensions -contains $legacyExtensions[$j].Name
-                    $status = if ($isInstalled) { "[INSTALLED]" } else { "[NOT INSTALLED]" }
-                    $statusColor = if ($isInstalled) { 'Green' } else { 'Gray' }
+                    if ($isInstalled) {
+                        $status = if ($isApplied) { "[INSTALLED]" } else { "[INSTALLED - Not Applied]" }
+                        $statusColor = if ($isApplied) { 'Green' } else { 'Yellow' }
+                    } else {
+                        $status = "[NOT INSTALLED]"
+                        $statusColor = 'Gray'
+                    }
                     Write-Host "[$displayIndex] $($legacyExtensions[$j].Name) " -NoNewline -ForegroundColor 'Cyan'
                     Write-Host $status -NoNewline -ForegroundColor $statusColor
                     Write-Host " - $($legacyExtensions[$j].Description)" -ForegroundColor 'Gray'
@@ -1402,11 +1647,24 @@ function Manage-Extensions {
 
                 $extChoice = Read-Host -Prompt "Enter number of extension to install (1-$($availableExtensions.Length)) or $backOption to go back"
 
+
+
+                # Convert choice to integer for proper comparison
+                $choiceInt = [int]$extChoice
+
                 if ($extChoice -eq $backOption) {
                     continue
                 }
-                elseif ($extChoice -match '^\d+$' -and $extChoice -gt 0 -and $extChoice -le $availableExtensions.Length) {
+                elseif ($extChoice -match '^\d+$' -and $choiceInt -gt 0 -and $choiceInt -le $availableExtensions.Length) {
                     $selectedExt = $availableExtensions[[int]$extChoice - 1]
+
+                    # Debug: Check if the selected extension is valid
+                    if (-not $selectedExt -or -not $selectedExt.Name) {
+                        Write-Warning "Invalid extension data at index $([int]$extChoice - 1). Please try again."
+                        Write-Host "Debug: Extension object = $($selectedExt | ConvertTo-Json)" -ForegroundColor 'Magenta'
+                        Press-EnterToContinue
+                        continue
+                    }
 
                     if ($currentExtensions -contains $selectedExt.Name) {
                         Write-Warning "Extension '$($selectedExt.Name)' is already installed."
@@ -1416,7 +1674,16 @@ function Manage-Extensions {
                         Invoke-Spicetify "config" "extensions" "$($selectedExt.Name)" | Out-Null
                         Write-Host "Extension '$($selectedExt.Name)' installed successfully!" -ForegroundColor 'Green'
                         Write-Host "Description: $($selectedExt.Description)" -ForegroundColor 'Gray'
-                        Write-Host "Note: Run 'Backup & Apply Changes' to activate the extension." -ForegroundColor 'Yellow'
+
+                        # Auto backup and apply changes
+                        Write-Host "Applying changes automatically..." -ForegroundColor 'Yellow'
+                        try {
+                            Invoke-Spicetify "backup" "apply" | Out-Null
+                            Write-Host "Extension activated successfully!" -ForegroundColor 'Green'
+                        } catch {
+                            Write-Warning "Failed to apply changes automatically. You may need to run 'Backup & Apply Changes' manually."
+                        }
+
                         Start-Sleep -Seconds 2
                         continue
                     }
@@ -1649,19 +1916,1002 @@ function Manage-Extensions {
     }
 }
 
+function Install-SpicetifyHistory {
+    try {
+        Write-Host "Installing Spicetify History..." -ForegroundColor 'Cyan'
+
+        # Create CustomApps directory if it doesn't exist
+        $customAppsPath = "$env:APPDATA\spicetify\CustomApps"
+        if (-not (Test-Path $customAppsPath)) {
+            New-Item -ItemType Directory -Path $customAppsPath -Force | Out-Null
+        }
+
+        $targetDir = "$customAppsPath\spicetify-history"
+
+        # Download latest release
+        Write-Host "Downloading latest release..." -NoNewline
+        $releaseUrl = "https://api.github.com/repos/bc9123/spicetify-history/releases/latest"
+
+        if (-not [string]::IsNullOrWhiteSpace($Global:githubToken)) {
+            $headers = @{ "Authorization" = "Bearer $Global:githubToken" }
+            $release = Invoke-RestMethod -Uri $releaseUrl -Headers $headers -ErrorAction Stop
+        } else {
+            $release = Invoke-RestMethod -Uri $releaseUrl -ErrorAction Stop
+        }
+
+        $downloadUrl = $release.zipball_url
+        $zipFile = "$env:TEMP\spicetify-history.zip"
+
+        if (-not [string]::IsNullOrWhiteSpace($Global:githubToken)) {
+            $headers = @{ "Authorization" = "Bearer $Global:githubToken" }
+            Invoke-WebRequest -Uri $downloadUrl -OutFile $zipFile -Headers $headers -ErrorAction Stop
+        } else {
+            Invoke-WebRequest -Uri $downloadUrl -OutFile $zipFile -ErrorAction Stop
+        }
+        Write-Success
+
+        # Extract and setup
+        Write-Host "Extracting and setting up..." -NoNewline
+        if (Test-Path $targetDir) {
+            Remove-Item -Path $targetDir -Recurse -Force
+        }
+
+        $tempExtractPath = "$env:TEMP\spicetify-history-extract"
+        if (Test-Path $tempExtractPath) {
+            Remove-Item -Path $tempExtractPath -Recurse -Force
+        }
+
+        Expand-Archive -Path $zipFile -DestinationPath $tempExtractPath -Force
+
+        # Find the extracted folder (GitHub creates folder with commit hash)
+        $extractedFolder = Get-ChildItem -Path $tempExtractPath -Directory | Select-Object -First 1
+        Move-Item -Path $extractedFolder.FullName -Destination $targetDir -Force
+
+        # Cleanup
+        Remove-Item -Path $zipFile -Force -ErrorAction SilentlyContinue
+        Remove-Item -Path $tempExtractPath -Recurse -Force -ErrorAction SilentlyContinue
+        Write-Success
+
+        # Configure Spicetify
+        Write-Host "Configuring Spicetify..." -NoNewline
+        Invoke-Spicetify "config" "custom_apps" "spicetify-history" | Out-Null
+        Write-Success
+
+        Write-Host "Spicetify History installed successfully!" -ForegroundColor 'Green'
+
+        # Auto backup and apply changes
+        Write-Host "Applying changes automatically..." -ForegroundColor 'Yellow'
+        try {
+            Invoke-Spicetify "backup" "apply" | Out-Null
+            Write-Host "Spicetify History activated successfully!" -ForegroundColor 'Green'
+        } catch {
+            Write-Warning "Failed to apply changes automatically. You may need to run 'Backup & Apply Changes' manually."
+        }
+
+        return $true
+    }
+    catch {
+        Write-Host " > FAILED" -ForegroundColor 'Red'
+        Write-Error-Message "Failed to install Spicetify History: $($_.Exception.Message)"
+        return $false
+    }
+}
+
+function Install-WMPotifyNowPlaying {
+    try {
+        Write-Host "Installing WMPotify NowPlaying..." -ForegroundColor 'Cyan'
+
+        # Create CustomApps directory if it doesn't exist
+        $customAppsPath = "$env:APPDATA\spicetify\CustomApps"
+        if (-not (Test-Path $customAppsPath)) {
+            New-Item -ItemType Directory -Path $customAppsPath -Force | Out-Null
+        }
+
+        $targetDir = "$customAppsPath\wmpvis"
+
+        # Download latest release
+        Write-Host "Downloading latest release..." -NoNewline
+        $releaseUrl = "https://api.github.com/repos/Ingan121/Spicetify-CustomApps/releases/latest"
+
+        if (-not [string]::IsNullOrWhiteSpace($Global:githubToken)) {
+            $headers = @{ "Authorization" = "Bearer $Global:githubToken" }
+            $release = Invoke-RestMethod -Uri $releaseUrl -Headers $headers -ErrorAction Stop
+        } else {
+            $release = Invoke-RestMethod -Uri $releaseUrl -ErrorAction Stop
+        }
+
+        # Find WMPotify NowPlaying asset
+        $asset = $release.assets | Where-Object { $_.name -like "*WMPotify*NowPlaying*" -or $_.name -like "*wmpvis*" }
+        if (-not $asset) {
+            $asset = $release.assets | Select-Object -First 1  # Fallback to first asset
+        }
+
+        $zipFile = "$env:TEMP\wmpvis.zip"
+        Invoke-WebRequest -Uri $asset.browser_download_url -OutFile $zipFile -ErrorAction Stop
+        Write-Success
+
+        # Extract and setup
+        Write-Host "Extracting and setting up..." -NoNewline
+        if (Test-Path $targetDir) {
+            Remove-Item -Path $targetDir -Recurse -Force
+        }
+
+        Expand-Archive -Path $zipFile -DestinationPath $targetDir -Force
+
+        # Cleanup
+        Remove-Item -Path $zipFile -Force -ErrorAction SilentlyContinue
+        Write-Success
+
+        # Configure Spicetify
+        Write-Host "Configuring Spicetify..." -NoNewline
+        Invoke-Spicetify "config" "custom_apps" "wmpvis" | Out-Null
+        Write-Success
+
+        Write-Host "WMPotify NowPlaying installed successfully!" -ForegroundColor 'Green'
+
+        # Auto apply changes
+        Apply-SpicetifyChanges -AppName "WMPotify NowPlaying"
+
+        return $true
+    }
+    catch {
+        Write-Host " > FAILED" -ForegroundColor 'Red'
+        Write-Error-Message "Failed to install WMPotify NowPlaying: $($_.Exception.Message)"
+        return $false
+    }
+}
+
+function Install-Enhancify {
+    try {
+        Write-Host "Installing Enhancify..." -ForegroundColor 'Cyan'
+
+        # Create CustomApps directory if it doesn't exist
+        $customAppsPath = "$env:APPDATA\spicetify\CustomApps"
+        if (-not (Test-Path $customAppsPath)) {
+            New-Item -ItemType Directory -Path $customAppsPath -Force | Out-Null
+        }
+
+        $targetDir = "$customAppsPath\enhancify"
+
+        # Download latest release
+        Write-Host "Downloading latest release..." -NoNewline
+        $releaseUrl = "https://api.github.com/repos/ECE49595-Team-6/EnhancifyInstall/releases/latest"
+
+        if (-not [string]::IsNullOrWhiteSpace($Global:githubToken)) {
+            $headers = @{ "Authorization" = "Bearer $Global:githubToken" }
+            $release = Invoke-RestMethod -Uri $releaseUrl -Headers $headers -ErrorAction Stop
+        } else {
+            $release = Invoke-RestMethod -Uri $releaseUrl -ErrorAction Stop
+        }
+
+        $downloadUrl = $release.zipball_url
+        $zipFile = "$env:TEMP\enhancify.zip"
+
+        if (-not [string]::IsNullOrWhiteSpace($Global:githubToken)) {
+            $headers = @{ "Authorization" = "Bearer $Global:githubToken" }
+            Invoke-WebRequest -Uri $downloadUrl -OutFile $zipFile -Headers $headers -ErrorAction Stop
+        } else {
+            Invoke-WebRequest -Uri $downloadUrl -OutFile $zipFile -ErrorAction Stop
+        }
+        Write-Success
+
+        # Extract and setup
+        Write-Host "Extracting and setting up..." -NoNewline
+        if (Test-Path $targetDir) {
+            Remove-Item -Path $targetDir -Recurse -Force
+        }
+
+        $tempExtractPath = "$env:TEMP\enhancify-extract"
+        if (Test-Path $tempExtractPath) {
+            Remove-Item -Path $tempExtractPath -Recurse -Force
+        }
+
+        Expand-Archive -Path $zipFile -DestinationPath $tempExtractPath -Force
+
+        # Find the extracted folder and look for the app files
+        $extractedFolder = Get-ChildItem -Path $tempExtractPath -Directory | Select-Object -First 1
+
+        # Look for the actual app folder (might be in a subdirectory)
+        $appFolder = Get-ChildItem -Path $extractedFolder.FullName -Directory -Recurse | Where-Object {
+            (Test-Path "$($_.FullName)\manifest.json") -or
+            (Test-Path "$($_.FullName)\index.js") -or
+            (Get-ChildItem -Path $_.FullName -Filter "*.js" -ErrorAction SilentlyContinue).Count -gt 0
+        } | Select-Object -First 1
+
+        if ($appFolder) {
+            Move-Item -Path $appFolder.FullName -Destination $targetDir -Force
+        } else {
+            # Fallback: move the entire extracted folder
+            Move-Item -Path $extractedFolder.FullName -Destination $targetDir -Force
+        }
+
+        # Cleanup
+        Remove-Item -Path $zipFile -Force -ErrorAction SilentlyContinue
+        Remove-Item -Path $tempExtractPath -Recurse -Force -ErrorAction SilentlyContinue
+        Write-Success
+
+        # Configure Spicetify
+        Write-Host "Configuring Spicetify..." -NoNewline
+        Invoke-Spicetify "config" "custom_apps" "enhancify" | Out-Null
+        Write-Success
+
+        Write-Host "Enhancify installed successfully!" -ForegroundColor 'Green'
+
+        # Auto apply changes
+        Apply-SpicetifyChanges -AppName "Enhancify"
+
+        return $true
+    }
+    catch {
+        Write-Host " > FAILED" -ForegroundColor 'Red'
+        Write-Error-Message "Failed to install Enhancify: $($_.Exception.Message)"
+        return $false
+    }
+}
+
+function Install-Lyrixed {
+    try {
+        Write-Host "Installing Lyrixed..." -ForegroundColor 'Cyan'
+
+        # Create CustomApps directory if it doesn't exist
+        $customAppsPath = "$env:APPDATA\spicetify\CustomApps"
+        if (-not (Test-Path $customAppsPath)) {
+            New-Item -ItemType Directory -Path $customAppsPath -Force | Out-Null
+        }
+
+        $targetDir = "$customAppsPath\lyrixed"
+
+        # Download latest release
+        Write-Host "Downloading latest release..." -NoNewline
+        $downloadUrl = "https://github.com/Nuzair46/Lyrixed/releases/latest/download/lyrixed.zip"
+        $zipFile = "$env:TEMP\lyrixed.zip"
+
+        Invoke-WebRequest -Uri $downloadUrl -OutFile $zipFile -ErrorAction Stop
+        Write-Success
+
+        # Extract and setup
+        Write-Host "Extracting and setting up..." -NoNewline
+        if (Test-Path $targetDir) {
+            Remove-Item -Path $targetDir -Recurse -Force
+        }
+
+        New-Item -ItemType Directory -Path $targetDir -Force | Out-Null
+        Expand-Archive -Path $zipFile -DestinationPath $targetDir -Force
+
+        # Cleanup
+        Remove-Item -Path $zipFile -Force -ErrorAction SilentlyContinue
+        Write-Success
+
+        # Configure Spicetify
+        Write-Host "Configuring Spicetify..." -NoNewline
+        Invoke-Spicetify "config" "custom_apps" "lyrixed" | Out-Null
+        Write-Success
+
+        Write-Host "Lyrixed installed successfully!" -ForegroundColor 'Green'
+
+        # Auto apply changes
+        Apply-SpicetifyChanges -AppName "Lyrixed"
+
+        return $true
+    }
+    catch {
+        Write-Host " > FAILED" -ForegroundColor 'Red'
+        Write-Error-Message "Failed to install Lyrixed: $($_.Exception.Message)"
+        return $false
+    }
+}
+
+function Install-HistoryInSidebar {
+    try {
+        Write-Host "Installing History in Sidebar..." -ForegroundColor 'Cyan'
+
+        # Create CustomApps directory if it doesn't exist
+        $customAppsPath = "$env:APPDATA\spicetify\CustomApps"
+        if (-not (Test-Path $customAppsPath)) {
+            New-Item -ItemType Directory -Path $customAppsPath -Force | Out-Null
+        }
+
+        $targetDir = "$customAppsPath\history-in-sidebar"
+
+        # Download from specific branch
+        Write-Host "Downloading from GitHub..." -NoNewline
+        $downloadUrl = "https://github.com/Bergbok/Spicetify-Creations/archive/refs/heads/dist/history-in-sidebar.zip"
+        $zipFile = "$env:TEMP\history-in-sidebar.zip"
+
+        Invoke-WebRequest -Uri $downloadUrl -OutFile $zipFile -ErrorAction Stop
+        Write-Success
+
+        # Extract and setup
+        Write-Host "Extracting and setting up..." -NoNewline
+        if (Test-Path $targetDir) {
+            Remove-Item -Path $targetDir -Recurse -Force
+        }
+
+        $tempExtractPath = "$env:TEMP\history-in-sidebar-extract"
+        if (Test-Path $tempExtractPath) {
+            Remove-Item -Path $tempExtractPath -Recurse -Force
+        }
+
+        Expand-Archive -Path $zipFile -DestinationPath $tempExtractPath -Force
+
+        # Find the extracted folder and rename it
+        $extractedFolder = Get-ChildItem -Path $tempExtractPath -Directory | Select-Object -First 1
+        Move-Item -Path $extractedFolder.FullName -Destination $targetDir -Force
+
+        # Cleanup
+        Remove-Item -Path $zipFile -Force -ErrorAction SilentlyContinue
+        Remove-Item -Path $tempExtractPath -Recurse -Force -ErrorAction SilentlyContinue
+        Write-Success
+
+        # Configure Spicetify
+        Write-Host "Configuring Spicetify..." -NoNewline
+        Invoke-Spicetify "config" "custom_apps" "history-in-sidebar" | Out-Null
+        Write-Success
+
+        Write-Host "History in Sidebar installed successfully!" -ForegroundColor 'Green'
+
+        # Auto apply changes
+        Apply-SpicetifyChanges -AppName "History in Sidebar"
+
+        return $true
+    }
+    catch {
+        Write-Host " > FAILED" -ForegroundColor 'Red'
+        Write-Error-Message "Failed to install History in Sidebar: $($_.Exception.Message)"
+        return $false
+    }
+}
+
+function Install-PlaylistTags {
+    try {
+        Write-Host "Installing Playlist Tags..." -ForegroundColor 'Cyan'
+
+        # Create CustomApps directory if it doesn't exist
+        $customAppsPath = "$env:APPDATA\spicetify\CustomApps"
+        if (-not (Test-Path $customAppsPath)) {
+            New-Item -ItemType Directory -Path $customAppsPath -Force | Out-Null
+        }
+
+        $targetDir = "$customAppsPath\playlist-tags"
+
+        # Download from specific branch
+        Write-Host "Downloading from GitHub..." -NoNewline
+        $downloadUrl = "https://github.com/Bergbok/Spicetify-Creations/archive/refs/heads/dist/playlist-tags.zip"
+        $zipFile = "$env:TEMP\playlist-tags.zip"
+
+        Invoke-WebRequest -Uri $downloadUrl -OutFile $zipFile -ErrorAction Stop
+        Write-Success
+
+        # Extract and setup
+        Write-Host "Extracting and setting up..." -NoNewline
+        if (Test-Path $targetDir) {
+            Remove-Item -Path $targetDir -Recurse -Force
+        }
+
+        $tempExtractPath = "$env:TEMP\playlist-tags-extract"
+        if (Test-Path $tempExtractPath) {
+            Remove-Item -Path $tempExtractPath -Recurse -Force
+        }
+
+        Expand-Archive -Path $zipFile -DestinationPath $tempExtractPath -Force
+
+        # Find the extracted folder and rename it
+        $extractedFolder = Get-ChildItem -Path $tempExtractPath -Directory | Select-Object -First 1
+        Move-Item -Path $extractedFolder.FullName -Destination $targetDir -Force
+
+        # Cleanup
+        Remove-Item -Path $zipFile -Force -ErrorAction SilentlyContinue
+        Remove-Item -Path $tempExtractPath -Recurse -Force -ErrorAction SilentlyContinue
+        Write-Success
+
+        # Configure Spicetify
+        Write-Host "Configuring Spicetify..." -NoNewline
+        Invoke-Spicetify "config" "custom_apps" "playlist-tags" | Out-Null
+        Write-Success
+
+        Write-Host "Playlist Tags installed successfully!" -ForegroundColor 'Green'
+        Write-Host "Note: Run 'Backup & Apply Changes' to activate the custom app." -ForegroundColor 'Yellow'
+
+        return $true
+    }
+    catch {
+        Write-Host " > FAILED" -ForegroundColor 'Red'
+        Write-Error-Message "Failed to install Playlist Tags: $($_.Exception.Message)"
+        return $false
+    }
+}
+
+function Install-BetterLibrary {
+    try {
+        Write-Host "Installing Better Library..." -ForegroundColor 'Cyan'
+
+        # Create CustomApps directory if it doesn't exist
+        $customAppsPath = "$env:APPDATA\spicetify\CustomApps"
+        if (-not (Test-Path $customAppsPath)) {
+            New-Item -ItemType Directory -Path $customAppsPath -Force | Out-Null
+        }
+
+        $targetDir = "$customAppsPath\betterLibrary"
+
+        # Download latest release
+        Write-Host "Downloading latest release..." -NoNewline
+        $releaseUrl = "https://api.github.com/repos/Sowgro/betterLibrary/releases/latest"
+
+        if (-not [string]::IsNullOrWhiteSpace($Global:githubToken)) {
+            $headers = @{ "Authorization" = "Bearer $Global:githubToken" }
+            $release = Invoke-RestMethod -Uri $releaseUrl -Headers $headers -ErrorAction Stop
+        } else {
+            $release = Invoke-RestMethod -Uri $releaseUrl -ErrorAction Stop
+        }
+
+        $downloadUrl = $release.zipball_url
+        $zipFile = "$env:TEMP\betterLibrary.zip"
+
+        if (-not [string]::IsNullOrWhiteSpace($Global:githubToken)) {
+            $headers = @{ "Authorization" = "Bearer $Global:githubToken" }
+            Invoke-WebRequest -Uri $downloadUrl -OutFile $zipFile -Headers $headers -ErrorAction Stop
+        } else {
+            Invoke-WebRequest -Uri $downloadUrl -OutFile $zipFile -ErrorAction Stop
+        }
+        Write-Success
+
+        # Extract and setup
+        Write-Host "Extracting and setting up..." -NoNewline
+        if (Test-Path $targetDir) {
+            Remove-Item -Path $targetDir -Recurse -Force
+        }
+
+        $tempExtractPath = "$env:TEMP\betterLibrary-extract"
+        if (Test-Path $tempExtractPath) {
+            Remove-Item -Path $tempExtractPath -Recurse -Force
+        }
+
+        Expand-Archive -Path $zipFile -DestinationPath $tempExtractPath -Force
+
+        # Find the extracted folder and look for CustomApps/betterLibrary
+        $extractedFolder = Get-ChildItem -Path $tempExtractPath -Directory | Select-Object -First 1
+        $betterLibraryPath = "$($extractedFolder.FullName)\CustomApps\betterLibrary"
+
+        if (Test-Path $betterLibraryPath) {
+            Move-Item -Path $betterLibraryPath -Destination $targetDir -Force
+        } else {
+            # Fallback: look for any folder with betterLibrary files
+            $appFolder = Get-ChildItem -Path $extractedFolder.FullName -Directory -Recurse | Where-Object {
+                Test-Path "$($_.FullName)\manifest.json" -or Test-Path "$($_.FullName)\index.js"
+            } | Select-Object -First 1
+
+            if ($appFolder) {
+                Move-Item -Path $appFolder.FullName -Destination $targetDir -Force
+            } else {
+                throw "Could not find betterLibrary app files in the downloaded archive"
+            }
+        }
+
+        # Cleanup
+        Remove-Item -Path $zipFile -Force -ErrorAction SilentlyContinue
+        Remove-Item -Path $tempExtractPath -Recurse -Force -ErrorAction SilentlyContinue
+        Write-Success
+
+        # Configure Spicetify
+        Write-Host "Configuring Spicetify..." -NoNewline
+        Invoke-Spicetify "config" "custom_apps" "betterLibrary" | Out-Null
+        Write-Success
+
+        Write-Host "Better Library installed successfully!" -ForegroundColor 'Green'
+        Write-Host "Note: Run 'Backup & Apply Changes' to activate the custom app." -ForegroundColor 'Yellow'
+
+        return $true
+    }
+    catch {
+        Write-Host " > FAILED" -ForegroundColor 'Red'
+        Write-Error-Message "Failed to install Better Library: $($_.Exception.Message)"
+        return $false
+    }
+}
+
+function Install-Visualizer {
+    try {
+        Write-Host "Installing Spicetify Visualizer..." -ForegroundColor 'Cyan'
+
+        # Create CustomApps directory if it doesn't exist
+        $customAppsPath = "$env:APPDATA\spicetify\CustomApps"
+        if (-not (Test-Path $customAppsPath)) {
+            New-Item -ItemType Directory -Path $customAppsPath -Force | Out-Null
+        }
+
+        $targetDir = "$customAppsPath\visualizer"
+
+        # Download from dist branch
+        Write-Host "Downloading from GitHub..." -NoNewline
+        $downloadUrl = "https://github.com/Konsl/spicetify-visualizer/archive/refs/heads/dist.zip"
+        $zipFile = "$env:TEMP\visualizer.zip"
+
+        Invoke-WebRequest -Uri $downloadUrl -OutFile $zipFile -ErrorAction Stop
+        Write-Success
+
+        # Extract and setup
+        Write-Host "Extracting and setting up..." -NoNewline
+        if (Test-Path $targetDir) {
+            Remove-Item -Path $targetDir -Recurse -Force
+        }
+
+        $tempExtractPath = "$env:TEMP\visualizer-extract"
+        if (Test-Path $tempExtractPath) {
+            Remove-Item -Path $tempExtractPath -Recurse -Force
+        }
+
+        Expand-Archive -Path $zipFile -DestinationPath $tempExtractPath -Force
+
+        # Find the extracted folder and move files
+        $extractedFolder = Get-ChildItem -Path $tempExtractPath -Directory | Select-Object -First 1
+        New-Item -ItemType Directory -Path $targetDir -Force | Out-Null
+
+        # Copy all files from extracted folder to target directory
+        Get-ChildItem -Path $extractedFolder.FullName -File | ForEach-Object {
+            Copy-Item -Path $_.FullName -Destination $targetDir -Force
+        }
+
+        # Cleanup
+        Remove-Item -Path $zipFile -Force -ErrorAction SilentlyContinue
+        Remove-Item -Path $tempExtractPath -Recurse -Force -ErrorAction SilentlyContinue
+        Write-Success
+
+        # Configure Spicetify
+        Write-Host "Configuring Spicetify..." -NoNewline
+        Invoke-Spicetify "config" "custom_apps" "visualizer" | Out-Null
+        Write-Success
+
+        Write-Host "Spicetify Visualizer installed successfully!" -ForegroundColor 'Green'
+        Write-Host "Note: Run 'Backup & Apply Changes' to activate the custom app." -ForegroundColor 'Yellow'
+
+        return $true
+    }
+    catch {
+        Write-Host " > FAILED" -ForegroundColor 'Red'
+        Write-Error-Message "Failed to install Spicetify Visualizer: $($_.Exception.Message)"
+        return $false
+    }
+}
+
+function Install-SpicetifyStats {
+    try {
+        Write-Host "Installing Spicetify Stats..." -ForegroundColor 'Cyan'
+
+        # Create CustomApps directory if it doesn't exist
+        $customAppsPath = "$env:APPDATA\spicetify\CustomApps"
+        if (-not (Test-Path $customAppsPath)) {
+            New-Item -ItemType Directory -Path $customAppsPath -Force | Out-Null
+        }
+
+        $targetDir = "$customAppsPath\stats"
+
+        # Get the latest STATS release
+        Write-Host "Fetching latest Stats release..." -NoNewline
+        $repo = "harbassan/spicetify-apps"
+
+        if (-not [string]::IsNullOrWhiteSpace($Global:githubToken)) {
+            $headers = @{ "Authorization" = "Bearer $Global:githubToken" }
+            $releases = Invoke-RestMethod -Uri "https://api.github.com/repos/$repo/releases" -Headers $headers -ErrorAction Stop
+        } else {
+            $releases = Invoke-RestMethod -Uri "https://api.github.com/repos/$repo/releases" -ErrorAction Stop
+        }
+
+        $latestStatsRelease = $releases | Where-Object { $_.tag_name -match "stats-v[0-9]+\.[0-9]+\.[0-9]+" } | Select-Object -First 1
+
+        if (-not $latestStatsRelease) {
+            throw "Could not find a Stats release"
+        }
+
+        $downloadUrl = $latestStatsRelease.assets[0].browser_download_url
+        $zipFile = "$env:TEMP\spicetify-stats.zip"
+
+        Invoke-WebRequest -Uri $downloadUrl -OutFile $zipFile -ErrorAction Stop
+        Write-Success
+
+        # Extract and setup
+        Write-Host "Extracting and setting up..." -NoNewline
+        if (Test-Path $targetDir) {
+            Remove-Item -Path $targetDir -Recurse -Force
+        }
+
+        $tempExtractPath = "$env:TEMP\spicetify-stats-extract"
+        if (Test-Path $tempExtractPath) {
+            Remove-Item -Path $tempExtractPath -Recurse -Force
+        }
+
+        Expand-Archive -Path $zipFile -DestinationPath $tempExtractPath -Force
+        Move-Item -Path "$tempExtractPath\*" -Destination $targetDir -Force
+
+        # Cleanup
+        Remove-Item -Path $zipFile -Force -ErrorAction SilentlyContinue
+        Remove-Item -Path $tempExtractPath -Recurse -Force -ErrorAction SilentlyContinue
+        Write-Success
+
+        # Configure Spicetify
+        Write-Host "Configuring Spicetify..." -NoNewline
+        Invoke-Spicetify "config" "custom_apps" "stats" | Out-Null
+        Write-Success
+
+        Write-Host "Spicetify Stats installed successfully!" -ForegroundColor 'Green'
+        Write-Host "Note: Run 'Backup & Apply Changes' to activate the custom app." -ForegroundColor 'Yellow'
+
+        return $true
+    }
+    catch {
+        Write-Host " > FAILED" -ForegroundColor 'Red'
+        Write-Error-Message "Failed to install Spicetify Stats: $($_.Exception.Message)"
+        return $false
+    }
+}
+
+function Install-SpicetifyLibrary {
+    try {
+        Write-Host "Installing Spicetify Library..." -ForegroundColor 'Cyan'
+
+        # Create CustomApps directory if it doesn't exist
+        $customAppsPath = "$env:APPDATA\spicetify\CustomApps"
+        if (-not (Test-Path $customAppsPath)) {
+            New-Item -ItemType Directory -Path $customAppsPath -Force | Out-Null
+        }
+
+        $targetDir = "$customAppsPath\library"
+
+        # Get the latest LIBRARY release
+        Write-Host "Fetching latest Library release..." -NoNewline
+        $repo = "harbassan/spicetify-apps"
+
+        if (-not [string]::IsNullOrWhiteSpace($Global:githubToken)) {
+            $headers = @{ "Authorization" = "Bearer $Global:githubToken" }
+            $releases = Invoke-RestMethod -Uri "https://api.github.com/repos/$repo/releases" -Headers $headers -ErrorAction Stop
+        } else {
+            $releases = Invoke-RestMethod -Uri "https://api.github.com/repos/$repo/releases" -ErrorAction Stop
+        }
+
+        $latestLibraryRelease = $releases | Where-Object { $_.tag_name -match "library-v[0-9]+\.[0-9]+\.[0-9]+" } | Select-Object -First 1
+
+        if ($latestLibraryRelease) {
+            $downloadUrl = $latestLibraryRelease.assets[0].browser_download_url
+        } else {
+            # Fallback to direct link
+            $downloadUrl = "https://github.com/harbassan/spicetify-apps/releases/download/library-v1.1.0/spicetify-library.release.zip"
+        }
+
+        $zipFile = "$env:TEMP\spicetify-library.zip"
+        Invoke-WebRequest -Uri $downloadUrl -OutFile $zipFile -ErrorAction Stop
+        Write-Success
+
+        # Extract and setup
+        Write-Host "Extracting and setting up..." -NoNewline
+        if (Test-Path $targetDir) {
+            Remove-Item -Path $targetDir -Recurse -Force
+        }
+
+        $tempExtractPath = "$env:TEMP\spicetify-library-extract"
+        if (Test-Path $tempExtractPath) {
+            Remove-Item -Path $tempExtractPath -Recurse -Force
+        }
+
+        Expand-Archive -Path $zipFile -DestinationPath $tempExtractPath -Force
+        Move-Item -Path "$tempExtractPath\*" -Destination $targetDir -Force
+
+        # Cleanup
+        Remove-Item -Path $zipFile -Force -ErrorAction SilentlyContinue
+        Remove-Item -Path $tempExtractPath -Recurse -Force -ErrorAction SilentlyContinue
+        Write-Success
+
+        # Configure Spicetify
+        Write-Host "Configuring Spicetify..." -NoNewline
+        Invoke-Spicetify "config" "custom_apps" "library" | Out-Null
+        Write-Success
+
+        Write-Host "Spicetify Library installed successfully!" -ForegroundColor 'Green'
+        Write-Host "Note: Run 'Backup & Apply Changes' to activate the custom app." -ForegroundColor 'Yellow'
+
+        return $true
+    }
+    catch {
+        Write-Host " > FAILED" -ForegroundColor 'Red'
+        Write-Error-Message "Failed to install Spicetify Library: $($_.Exception.Message)"
+        return $false
+    }
+}
+
+function Install-PithayaApp {
+    param(
+        [string]$AppName,
+        [string]$DisplayName
+    )
+
+    try {
+        Write-Host "Installing $DisplayName..." -ForegroundColor 'Cyan'
+
+        # Create CustomApps directory if it doesn't exist
+        $customAppsPath = "$env:APPDATA\spicetify\CustomApps"
+        if (-not (Test-Path $customAppsPath)) {
+            New-Item -ItemType Directory -Path $customAppsPath -Force | Out-Null
+        }
+
+        $targetDir = "$customAppsPath\$AppName"
+
+        # Download from specific branch
+        Write-Host "Downloading from GitHub..." -NoNewline
+        $downloadUrl = "https://github.com/Pithaya/spicetify-apps-dist/archive/refs/heads/dist/$AppName.zip"
+        $zipFile = "$env:TEMP\$AppName.zip"
+
+        Invoke-WebRequest -Uri $downloadUrl -OutFile $zipFile -ErrorAction Stop
+        Write-Success
+
+        # Extract and setup
+        Write-Host "Extracting and setting up..." -NoNewline
+        if (Test-Path $targetDir) {
+            Remove-Item -Path $targetDir -Recurse -Force
+        }
+
+        $tempExtractPath = "$env:TEMP\$AppName-extract"
+        if (Test-Path $tempExtractPath) {
+            Remove-Item -Path $tempExtractPath -Recurse -Force
+        }
+
+        Expand-Archive -Path $zipFile -DestinationPath $tempExtractPath -Force
+
+        # Find the extracted folder and move files
+        $extractedFolder = Get-ChildItem -Path $tempExtractPath -Directory | Select-Object -First 1
+        New-Item -ItemType Directory -Path $targetDir -Force | Out-Null
+
+        # Copy all files from extracted folder to target directory
+        Get-ChildItem -Path $extractedFolder.FullName -File | ForEach-Object {
+            Copy-Item -Path $_.FullName -Destination $targetDir -Force
+        }
+
+        # Cleanup
+        Remove-Item -Path $zipFile -Force -ErrorAction SilentlyContinue
+        Remove-Item -Path $tempExtractPath -Recurse -Force -ErrorAction SilentlyContinue
+        Write-Success
+
+        # Configure Spicetify
+        Write-Host "Configuring Spicetify..." -NoNewline
+        Invoke-Spicetify "config" "custom_apps" "$AppName" | Out-Null
+        Write-Success
+
+        Write-Host "$DisplayName installed successfully!" -ForegroundColor 'Green'
+
+        # Auto apply changes
+        Apply-SpicetifyChanges -AppName $DisplayName
+
+        return $true
+    }
+    catch {
+        Write-Host " > FAILED" -ForegroundColor 'Red'
+        Write-Error-Message "Failed to install $DisplayName`: $($_.Exception.Message)"
+        return $false
+    }
+}
+
+function Install-NameThatTune {
+    try {
+        Write-Host "Installing Name That Tune..." -ForegroundColor 'Cyan'
+
+        # Create CustomApps directory if it doesn't exist
+        $customAppsPath = "$env:APPDATA\spicetify\CustomApps"
+        if (-not (Test-Path $customAppsPath)) {
+            New-Item -ItemType Directory -Path $customAppsPath -Force | Out-Null
+        }
+
+        $targetDir = "$customAppsPath\name-that-tune"
+
+        # Download from dist branch
+        Write-Host "Downloading from GitHub..." -NoNewline
+        $downloadUrl = "https://github.com/theRealPadster/name-that-tune/archive/refs/heads/dist.zip"
+        $zipFile = "$env:TEMP\name-that-tune.zip"
+
+        Invoke-WebRequest -Uri $downloadUrl -OutFile $zipFile -ErrorAction Stop
+        Write-Success
+
+        # Extract and setup
+        Write-Host "Extracting and setting up..." -NoNewline
+        if (Test-Path $targetDir) {
+            Remove-Item -Path $targetDir -Recurse -Force
+        }
+
+        $tempExtractPath = "$env:TEMP\name-that-tune-extract"
+        if (Test-Path $tempExtractPath) {
+            Remove-Item -Path $tempExtractPath -Recurse -Force
+        }
+
+        Expand-Archive -Path $zipFile -DestinationPath $tempExtractPath -Force
+
+        # Find the extracted folder and rename it
+        $extractedFolder = Get-ChildItem -Path $tempExtractPath -Directory | Select-Object -First 1
+        Move-Item -Path $extractedFolder.FullName -Destination $targetDir -Force
+
+        # Cleanup
+        Remove-Item -Path $zipFile -Force -ErrorAction SilentlyContinue
+        Remove-Item -Path $tempExtractPath -Recurse -Force -ErrorAction SilentlyContinue
+        Write-Success
+
+        # Configure Spicetify
+        Write-Host "Configuring Spicetify..." -NoNewline
+        Invoke-Spicetify "config" "custom_apps" "name-that-tune" | Out-Null
+        Write-Success
+
+        Write-Host "Name That Tune installed successfully!" -ForegroundColor 'Green'
+        Write-Host "Note: Run 'Backup & Apply Changes' to activate the custom app." -ForegroundColor 'Yellow'
+
+        return $true
+    }
+    catch {
+        Write-Host " > FAILED" -ForegroundColor 'Red'
+        Write-Error-Message "Failed to install Name That Tune: $($_.Exception.Message)"
+        return $false
+    }
+}
+
+function Install-CombinedPlaylists {
+    try {
+        Write-Host "Installing Combined Playlists..." -ForegroundColor 'Cyan'
+
+        # Create CustomApps directory if it doesn't exist
+        $customAppsPath = "$env:APPDATA\spicetify\CustomApps"
+        if (-not (Test-Path $customAppsPath)) {
+            New-Item -ItemType Directory -Path $customAppsPath -Force | Out-Null
+        }
+
+        $targetDir = "$customAppsPath\combined-playlists"
+
+        # Download from dist branch
+        Write-Host "Downloading from GitHub..." -NoNewline
+        $downloadUrl = "https://github.com/jeroentvb/spicetify-combined-playlists/archive/refs/heads/dist.zip"
+        $zipFile = "$env:TEMP\combined-playlists.zip"
+
+        Invoke-WebRequest -Uri $downloadUrl -OutFile $zipFile -ErrorAction Stop
+        Write-Success
+
+        # Extract and setup
+        Write-Host "Extracting and setting up..." -NoNewline
+        if (Test-Path $targetDir) {
+            Remove-Item -Path $targetDir -Recurse -Force
+        }
+
+        $tempExtractPath = "$env:TEMP\combined-playlists-extract"
+        if (Test-Path $tempExtractPath) {
+            Remove-Item -Path $tempExtractPath -Recurse -Force
+        }
+
+        Expand-Archive -Path $zipFile -DestinationPath $tempExtractPath -Force
+
+        # Find the extracted folder and look for the combined-playlists folder
+        $extractedFolder = Get-ChildItem -Path $tempExtractPath -Directory | Select-Object -First 1
+        $combinedPlaylistsPath = "$($extractedFolder.FullName)\combined-playlists"
+
+        if (Test-Path $combinedPlaylistsPath) {
+            Move-Item -Path $combinedPlaylistsPath -Destination $targetDir -Force
+        } else {
+            # Fallback: rename the extracted folder
+            Move-Item -Path $extractedFolder.FullName -Destination $targetDir -Force
+        }
+
+        # Cleanup
+        Remove-Item -Path $zipFile -Force -ErrorAction SilentlyContinue
+        Remove-Item -Path $tempExtractPath -Recurse -Force -ErrorAction SilentlyContinue
+        Write-Success
+
+        # Configure Spicetify
+        Write-Host "Configuring Spicetify..." -NoNewline
+        Invoke-Spicetify "config" "custom_apps" "combined-playlists" | Out-Null
+        Write-Success
+
+        Write-Host "Combined Playlists installed successfully!" -ForegroundColor 'Green'
+        Write-Host "Note: Run 'Backup & Apply Changes' to activate the custom app." -ForegroundColor 'Yellow'
+
+        return $true
+    }
+    catch {
+        Write-Host " > FAILED" -ForegroundColor 'Red'
+        Write-Error-Message "Failed to install Combined Playlists: $($_.Exception.Message)"
+        return $false
+    }
+}
+
+function Install-BeatSaber {
+    try {
+        Write-Host "Installing Beat Saber Integration..." -ForegroundColor 'Cyan'
+
+        # Create CustomApps directory if it doesn't exist
+        $customAppsPath = "$env:APPDATA\spicetify\CustomApps"
+        if (-not (Test-Path $customAppsPath)) {
+            New-Item -ItemType Directory -Path $customAppsPath -Force | Out-Null
+        }
+
+        $targetDir = "$customAppsPath\beatsaber"
+
+        # Download latest release
+        Write-Host "Downloading latest release..." -NoNewline
+        $releaseUrl = "https://api.github.com/repos/kuba2k2/spicetify-beat-saber/releases/latest"
+
+        if (-not [string]::IsNullOrWhiteSpace($Global:githubToken)) {
+            $headers = @{ "Authorization" = "Bearer $Global:githubToken" }
+            $release = Invoke-RestMethod -Uri $releaseUrl -Headers $headers -ErrorAction Stop
+        } else {
+            $release = Invoke-RestMethod -Uri $releaseUrl -ErrorAction Stop
+        }
+
+        # Find the dist zip file (not the .spa file)
+        $asset = $release.assets | Where-Object { $_.name -like "*beatsaber-dist*" -and $_.name -like "*.zip" }
+        if (-not $asset) {
+            # Fallback to direct link
+            $downloadUrl = "https://github.com/kuba2k2/spicetify-beat-saber/releases/download/v2.3.0/beatsaber-dist-2.3.0.zip"
+        } else {
+            $downloadUrl = $asset.browser_download_url
+        }
+
+        $zipFile = "$env:TEMP\beatsaber.zip"
+        Invoke-WebRequest -Uri $downloadUrl -OutFile $zipFile -ErrorAction Stop
+        Write-Success
+
+        # Extract and setup
+        Write-Host "Extracting and setting up..." -NoNewline
+        if (Test-Path $targetDir) {
+            Remove-Item -Path $targetDir -Recurse -Force
+        }
+
+        $tempExtractPath = "$env:TEMP\beatsaber-extract"
+        if (Test-Path $tempExtractPath) {
+            Remove-Item -Path $tempExtractPath -Recurse -Force
+        }
+
+        Expand-Archive -Path $zipFile -DestinationPath $tempExtractPath -Force
+
+        # Find the beatsaber directory in the extracted files
+        $beatSaberPath = Get-ChildItem -Path $tempExtractPath -Directory -Recurse | Where-Object { $_.Name -eq "beatsaber" } | Select-Object -First 1
+
+        if ($beatSaberPath) {
+            Move-Item -Path $beatSaberPath.FullName -Destination $targetDir -Force
+        } else {
+            # Fallback: move the first directory found
+            $extractedFolder = Get-ChildItem -Path $tempExtractPath -Directory | Select-Object -First 1
+            Move-Item -Path $extractedFolder.FullName -Destination $targetDir -Force
+        }
+
+        # Cleanup
+        Remove-Item -Path $zipFile -Force -ErrorAction SilentlyContinue
+        Remove-Item -Path $tempExtractPath -Recurse -Force -ErrorAction SilentlyContinue
+        Write-Success
+
+        # Configure Spicetify
+        Write-Host "Configuring Spicetify..." -NoNewline
+        Invoke-Spicetify "config" "custom_apps" "beatsaber" | Out-Null
+        Write-Success
+
+        Write-Host "Beat Saber Integration installed successfully!" -ForegroundColor 'Green'
+        Write-Host "Note: Run 'Backup & Apply Changes' to activate the custom app." -ForegroundColor 'Yellow'
+        Write-Host "Additional Note: For full functionality, install spicetify-beat-saber-backend separately." -ForegroundColor 'Cyan'
+
+        return $true
+    }
+    catch {
+        Write-Host " > FAILED" -ForegroundColor 'Red'
+        Write-Error-Message "Failed to install Beat Saber Integration: $($_.Exception.Message)"
+        return $false
+    }
+}
+
 function Manage-CustomApps {
     while ($true) {
         try {
             Clear-Host
             Write-Host "--- Custom Apps Management ---" -ForegroundColor 'Yellow'
 
-            # Get current custom apps
+            # Get current custom apps and check if applied
             $appsConfig = Get-SpicetifyConfigValue "custom_apps"
             $currentApps = $appsConfig.Array
+            $isApplied = Test-SpicetifyApplied
 
             Write-Host "Current Custom Apps: " -NoNewline
             if ($currentApps.Count -gt 0) {
-                Write-Host ($currentApps -join ' | ') -ForegroundColor 'Cyan'
+                $statusText = if ($isApplied) { "APPLIED" } else { "NOT APPLIED" }
+                $statusColor = if ($isApplied) { 'Green' } else { 'Yellow' }
+                Write-Host ($currentApps -join ' | ') -NoNewline -ForegroundColor 'Cyan'
+                Write-Host " [$statusText]" -ForegroundColor $statusColor
             } else {
                 Write-Host "(No custom apps installed)" -ForegroundColor 'Gray'
             }
@@ -1670,17 +2920,61 @@ function Manage-CustomApps {
             Write-Host "[2] Remove Custom App"
             Write-Host "[3] List Available Custom Apps"
             Write-Host "[4] Clear All Custom Apps"
-            Write-Host "[5] Back to Settings Menu"
+            if ($currentApps.Count -gt 0 -and -not $isApplied) {
+                Write-Host "[5] Apply New Changes" -ForegroundColor 'Green'
+                Write-Host "[6] Back to Settings Menu"
+            } else {
+                Write-Host "[5] Back to Settings Menu"
+            }
             $choice = Read-Host -Prompt "Choose an option"
 
-            if ($choice -eq '5') { break }
+            # Determine the correct back option based on whether Apply button is shown
+            $backOption = if ($currentApps.Count -gt 0 -and -not $isApplied) { '6' } else { '5' }
+
+            if ($choice -eq $backOption) { break }
+            elseif ($choice -eq '5' -and $currentApps.Count -gt 0 -and -not $isApplied) {
+                # Apply new changes
+                Write-Host "Applying custom app changes..." -ForegroundColor 'Cyan'
+                if (Invoke-SafeSpicetifyBackup) {
+                    if (Invoke-SafeSpicetifyApply) {
+                        Write-Host "Custom apps applied successfully!" -ForegroundColor 'Green'
+                        $Global:changesApplied = $true
+                    } else {
+                        Write-Host "Apply completed but there may be issues." -ForegroundColor 'Yellow'
+                        $Global:changesApplied = $true
+                    }
+                } else {
+                    Write-Host "Backup failed - skipping apply." -ForegroundColor 'Red'
+                }
+                Press-EnterToContinue
+                continue
+            }
             elseif ($choice -eq '1') {
+                # Refresh current apps and applied status for accurate display
+                $appsConfig = Get-SpicetifyConfigValue "custom_apps"
+                $currentApps = $appsConfig.Array
+                $isApplied = Test-SpicetifyApplied
+
                 $availableApps = @(
                     @{ Name = "reddit"; Description = "Fetch posts from Spotify link sharing subreddits"; Category = "Official" },
                     @{ Name = "new-releases"; Description = "Aggregate new releases from favorite artists and podcasts"; Category = "Official" },
                     @{ Name = "lyrics-plus"; Description = "Get lyrics from various providers (Musixmatch, Netease, LRCLIB)"; Category = "Official" },
                     @{ Name = "history-in-sidebar"; Description = "Adds a shortcut to the 'Recently Played' panel to the sidebar"; Category = "Community" },
-                    @{ Name = "playlist-tags"; Description = "Improved way of organizing and sharing playlists with tags"; Category = "Community" }
+                    @{ Name = "playlist-tags"; Description = "Improved way of organizing and sharing playlists with tags"; Category = "Community" },
+                    @{ Name = "spicetify-history"; Description = "Track your Spotify listening history with timestamps and export functionality"; Category = "Community" },
+                    @{ Name = "wmpvis"; Description = "WMP-like visualization screen with lyrics overlay (WMPotify NowPlaying)"; Category = "Community" },
+                    @{ Name = "enhancify"; Description = "Enhanced Spotify experience with additional features"; Category = "Community" },
+                    @{ Name = "lyrixed"; Description = "Bring back lyrics feature for freemium users"; Category = "Community" },
+                    @{ Name = "betterLibrary"; Description = "Enhanced library experience with improved organization"; Category = "Community" },
+                    @{ Name = "visualizer"; Description = "Audio visualizer with customizable effects"; Category = "Community" },
+                    @{ Name = "stats"; Description = "Detailed listening statistics and analytics"; Category = "Community" },
+                    @{ Name = "library"; Description = "Enhanced library management and organization"; Category = "Community" },
+                    @{ Name = "eternal-jukebox"; Description = "Create infinite loops of your favorite songs"; Category = "Community" },
+                    @{ Name = "better-local-files"; Description = "Improved local file management and playback"; Category = "Community" },
+                    @{ Name = "playlist-maker"; Description = "Advanced playlist creation and management tools"; Category = "Community" },
+                    @{ Name = "name-that-tune"; Description = "Music guessing game with your Spotify library"; Category = "Community" },
+                    @{ Name = "combined-playlists"; Description = "Combine multiple playlists into one with auto-sync"; Category = "Community" },
+                    @{ Name = "beatsaber"; Description = "Beat Saber map availability and download integration"; Category = "Community" }
                 )
 
                 Write-Host "--- Available Custom Apps ---" -ForegroundColor 'Yellow'
@@ -1690,8 +2984,13 @@ function Manage-CustomApps {
                 for ($j = 0; $j -lt $officialApps.Length; $j++) {
                     $globalIndex = [array]::IndexOf($availableApps, $officialApps[$j]) + 1
                     $isInstalled = $currentApps -contains $officialApps[$j].Name
-                    $status = if ($isInstalled) { "[INSTALLED]" } else { "[NOT INSTALLED]" }
-                    $statusColor = if ($isInstalled) { 'Green' } else { 'Gray' }
+                    if ($isInstalled) {
+                        $status = if ($isApplied) { "[INSTALLED]" } else { "[INSTALLED - Not Applied]" }
+                        $statusColor = if ($isApplied) { 'Green' } else { 'Yellow' }
+                    } else {
+                        $status = "[NOT INSTALLED]"
+                        $statusColor = 'Gray'
+                    }
                     Write-Host "[$globalIndex] $($officialApps[$j].Name) " -NoNewline -ForegroundColor 'Cyan'
                     Write-Host $status -NoNewline -ForegroundColor $statusColor
                     Write-Host " - $($officialApps[$j].Description)" -ForegroundColor 'Gray'
@@ -1702,8 +3001,13 @@ function Manage-CustomApps {
                 for ($j = 0; $j -lt $communityApps.Length; $j++) {
                     $globalIndex = [array]::IndexOf($availableApps, $communityApps[$j]) + 1
                     $isInstalled = $currentApps -contains $communityApps[$j].Name
-                    $status = if ($isInstalled) { "[INSTALLED]" } else { "[NOT INSTALLED]" }
-                    $statusColor = if ($isInstalled) { 'Green' } else { 'Gray' }
+                    if ($isInstalled) {
+                        $status = if ($isApplied) { "[INSTALLED]" } else { "[INSTALLED - Not Applied]" }
+                        $statusColor = if ($isApplied) { 'Green' } else { 'Yellow' }
+                    } else {
+                        $status = "[NOT INSTALLED]"
+                        $statusColor = 'Gray'
+                    }
                     Write-Host "[$globalIndex] $($communityApps[$j].Name) " -NoNewline -ForegroundColor 'Cyan'
                     Write-Host $status -NoNewline -ForegroundColor $statusColor
                     Write-Host " - $($communityApps[$j].Description)" -ForegroundColor 'Gray'
@@ -1716,19 +3020,90 @@ function Manage-CustomApps {
                 if ($appChoice -eq $backOption) {
                     continue
                 }
-                elseif ($appChoice -match '^\d+$' -and $appChoice -gt 0 -and $appChoice -le $availableApps.Length) {
+                elseif ($appChoice -match '^\d+$' -and [int]$appChoice -gt 0 -and [int]$appChoice -le $availableApps.Length) {
                     $selectedApp = $availableApps[[int]$appChoice - 1]
 
                     if ($currentApps -contains $selectedApp.Name) {
                         Write-Warning "Custom app '$($selectedApp.Name)' is already installed."
                         Press-EnterToContinue
                     } else {
-                        Write-Host "Installing custom app: $($selectedApp.Name)..." -ForegroundColor 'Cyan'
-                        Invoke-Spicetify "config" "custom_apps" "$($selectedApp.Name)" | Out-Null
-                        Write-Host "Custom app '$($selectedApp.Name)' installed successfully!" -ForegroundColor 'Green'
-                        Write-Host "Description: $($selectedApp.Description)" -ForegroundColor 'Gray'
-                        Write-Host "Note: Run 'Backup & Apply Changes' to activate the custom app." -ForegroundColor 'Yellow'
-                        Start-Sleep -Seconds 2
+                        # Use specialized installation functions for certain apps
+                        $installSuccess = $false
+                        switch ($selectedApp.Name) {
+                            "spicetify-history" {
+                                $installSuccess = Install-SpicetifyHistory
+                            }
+                            "wmpvis" {
+                                $installSuccess = Install-WMPotifyNowPlaying
+                            }
+                            "enhancify" {
+                                $installSuccess = Install-Enhancify
+                            }
+                            "lyrixed" {
+                                $installSuccess = Install-Lyrixed
+                            }
+                            "history-in-sidebar" {
+                                $installSuccess = Install-HistoryInSidebar
+                            }
+                            "playlist-tags" {
+                                $installSuccess = Install-PlaylistTags
+                            }
+                            "betterLibrary" {
+                                $installSuccess = Install-BetterLibrary
+                            }
+                            "visualizer" {
+                                $installSuccess = Install-Visualizer
+                            }
+                            "stats" {
+                                $installSuccess = Install-SpicetifyStats
+                            }
+                            "library" {
+                                $installSuccess = Install-SpicetifyLibrary
+                            }
+                            "eternal-jukebox" {
+                                $installSuccess = Install-PithayaApp -AppName "eternal-jukebox" -DisplayName "Eternal Jukebox"
+                            }
+                            "better-local-files" {
+                                $installSuccess = Install-PithayaApp -AppName "better-local-files" -DisplayName "Better Local Files"
+                            }
+                            "playlist-maker" {
+                                $installSuccess = Install-PithayaApp -AppName "playlist-maker" -DisplayName "Playlist Maker"
+                            }
+                            "name-that-tune" {
+                                $installSuccess = Install-NameThatTune
+                            }
+                            "combined-playlists" {
+                                $installSuccess = Install-CombinedPlaylists
+                            }
+                            "beatsaber" {
+                                $installSuccess = Install-BeatSaber
+                            }
+                            default {
+                                # Default installation for official apps
+                                Write-Host "Installing custom app: $($selectedApp.Name)..." -ForegroundColor 'Cyan'
+                                Invoke-Spicetify "config" "custom_apps" "$($selectedApp.Name)" | Out-Null
+                                Write-Host "Custom app '$($selectedApp.Name)' installed successfully!" -ForegroundColor 'Green'
+                                Write-Host "Description: $($selectedApp.Description)" -ForegroundColor 'Gray'
+
+                                # Auto backup and apply changes
+                                Write-Host "Applying changes automatically..." -ForegroundColor 'Yellow'
+                                try {
+                                    Invoke-Spicetify "backup" "apply" | Out-Null
+                                    Write-Host "Custom app activated successfully!" -ForegroundColor 'Green'
+                                } catch {
+                                    Write-Warning "Failed to apply changes automatically. You may need to run 'Backup & Apply Changes' manually."
+                                }
+
+                                $installSuccess = $true
+                            }
+                        }
+
+                        if ($installSuccess) {
+                            Start-Sleep -Seconds 3
+                        } else {
+                            Write-Host "Installation failed. Please try again or install manually." -ForegroundColor 'Red'
+                            Start-Sleep -Seconds 2
+                        }
                         continue
                     }
                 } else {
@@ -2147,10 +3522,11 @@ Write-Host ""  # Add spacing before main menu
 
 while ($true) {
     Show-MainMenu
-    $mainChoice = Read-Host -Prompt "Please enter your choice [1-7]"
+    $mainChoice = Read-Host -Prompt "Please enter your choice [0-9]"
 
-    if (($mainChoice -eq '3' -or $mainChoice -eq '4') -and -not (Get-Command -Name 'spicetify' -ErrorAction SilentlyContinue)) {
-        Write-Warning "Spicetify is not installed. Please install it first (Option 2)."
+    # Check if Spicetify is required for certain options
+    if (($mainChoice -eq '5' -or $mainChoice -eq '6' -or $mainChoice -eq '7' -or $mainChoice -eq '8') -and -not (Get-Command -Name 'spicetify' -ErrorAction SilentlyContinue)) {
+        Write-Warning "Spicetify is not installed. Please install it first (Option 4)."
         Press-EnterToContinue
         continue
     }
@@ -2158,20 +3534,25 @@ while ($true) {
     try {
         switch ($mainChoice) {
             '1' { Install-Spotify; Press-EnterToContinue }
-            '2' { Install-Spicetify; Press-EnterToContinue }
-            '3' { Install-Marketplace; Press-EnterToContinue }
-            '4' {
+            '2' { Update-Spotify; Press-EnterToContinue }
+            '3' { Remove-Spotify; Press-EnterToContinue }
+            '4' { Install-Spicetify; Press-EnterToContinue }
+            '5' { Install-Marketplace; Press-EnterToContinue }
+            '6' { Update-Spicetify; Press-EnterToContinue }
+            '7' {
                 while ($true) {
                     Show-SettingsMenu
-                    $settingsChoice = Read-Host -Prompt "Choose an action [1-13]"
+                    $settingsChoice = Read-Host -Prompt "Choose an action [1-12]"
 
-                    if ($settingsChoice -eq '13') { break }
+                    if ($settingsChoice -eq '12') { break }
                     elseif ($settingsChoice -eq '1') {
                         if (Invoke-SafeSpicetifyBackup) {
                             if (Invoke-SafeSpicetifyApply) {
                                 Write-Host "Backup and apply completed successfully!" -ForegroundColor 'Green'
+                                $Global:changesApplied = $true
                             } else {
                                 Write-Host "Backup completed but apply may have issues." -ForegroundColor 'Yellow'
+                                $Global:changesApplied = $true
                             }
                         } else {
                             Write-Host "Backup failed - skipping apply." -ForegroundColor 'Red'
@@ -2249,14 +3630,6 @@ while ($true) {
                         }
                     }
                     elseif ($settingsChoice -eq '11') {
-                        try {
-                            Manage-GitHubToken
-                        } catch {
-                            Write-Error-Message $_.Exception.Message
-                            Press-EnterToContinue
-                        }
-                    }
-                    elseif ($settingsChoice -eq '12') {
                         Write-Host "--- Raw 'spicetify config' output ---" -ForegroundColor 'Yellow'
                         $rawConfig = Invoke-SpicetifyWithOutput "config"
                         Write-Host "====================================="
@@ -2266,14 +3639,21 @@ while ($true) {
                         Press-EnterToContinue
                     }
                     else {
-                        Write-Warning "Invalid choice. Please enter a number between 1-13."
+                        Write-Warning "Invalid choice. Please enter a number between 1-12."
                         Press-EnterToContinue
                     }
                 }
             }
-            '5' { Remove-Spotify; Press-EnterToContinue }
-            '6' { Remove-Spicetify; Press-EnterToContinue }
-            '7' { Write-Host "Exiting. Goodbye!" -ForegroundColor 'Green'; exit }
+            '8' { Remove-Spicetify; Press-EnterToContinue }
+            '9' {
+                try {
+                    Manage-GitHubToken
+                } catch {
+                    Write-Error-Message $_.Exception.Message
+                    Press-EnterToContinue
+                }
+            }
+            '0' { Write-Host "Exiting. Goodbye!" -ForegroundColor 'Green'; exit }
             default { Write-Warning "Invalid choice."; Press-EnterToContinue }
         }
     }
