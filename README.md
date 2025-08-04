@@ -2,9 +2,11 @@
 
 # Spicetify Plus ✨
 
+**[🇮🇷 فارسی](README-FA.md)** | **[🇺🇸 English](README.md)**
+
 Welcome to **Spicetify Plus**, the ultimate all-in-one tool for managing your Spotify and Spicetify experience on Windows! 🚀
 
-This powerful, menu-driven tool simplifies every step of the process, from installation to advanced configuration, all wrapped in a simple `.exe` file for maximum convenience.
+This powerful, menu-driven PowerShell tool simplifies every step of the process, from installation to advanced configuration, all wrapped in both a PowerShell script and a convenient `.exe` file for maximum ease of use.
 
 Created with the help of AI and refined by [MBNpro-ir](https://github.com/MBNpro-ir).
 
@@ -12,83 +14,234 @@ Created with the help of AI and refined by [MBNpro-ir](https://github.com/MBNpro
 
 ## 🌟 Features
 
-Spicetify Plus provides a user-friendly interface to handle all your needs:
+Spicetify Plus provides a comprehensive, user-friendly interface to handle all your Spotify customization needs:
 
--   **✨ One-Click Setup**: The easiest way to get started. Just run the `.exe` and you're good to go.
--   **✅ Smart Spotify Installation**: Automatically detects if Spotify is installed (standard or Microsoft Store version). If not, it downloads and installs it silently.
--   **🎨 Effortless Spicetify Installation**: Installs the latest version of Spicetify-CLI with all necessary configurations handled automatically.
--   **🔧 Comprehensive Settings Menu**: A dedicated sub-menu to manage almost every Spicetify command and configuration option, including core actions, feature toggles, and advanced launch flags.
--   **🛍️ Marketplace Ready**: Includes an option to directly install the Spicetify Marketplace to browse and install themes and extensions from within Spotify.
--   **🗑️ Clean Uninstallation**: Completely and safely remove Spotify and/or Spicetify, including clearing backup files and cleaning the system's PATH variable.
--   **🔐 Rate Limit Prevention**: Easily add your own GitHub API token within the script to avoid download rate limits from GitHub.
--   **👨‍💻 Admin-Ready**: The executable automatically handles Windows Administrator privileges for a seamless experience.
+### 🎵 Spotify Management
+-   **✅ Smart Spotify Detection & Installation**: Automatically detects if Spotify is installed (standard or Microsoft Store version). If not, downloads and installs it silently.
+-   **🔄 Spotify Updates**: Check for and manage Spotify updates with guidance.
+-   **🗑️ Clean Spotify Removal**: Safely uninstall Spotify with complete cleanup.
+
+### 🎨 Spicetify Management
+-   **🚀 One-Click Spicetify Installation**: Installs the latest version of Spicetify-CLI with all necessary configurations handled automatically.
+-   **📦 Spicetify Updates**: Keep your Spicetify installation up-to-date with the latest features.
+-   **🛍️ Marketplace Integration**: Direct installation of Spicetify Marketplace to browse and install themes and extensions from within Spotify.
+-   **🔧 Comprehensive Settings Menu**: Dedicated sub-menu to manage almost every Spicetify command and configuration option.
+
+### ⚙️ Advanced Features
+-   **🎭 Theme Management**: Install, configure, and switch between various Spicetify themes.
+-   **🧩 Extension Management**: Browse and install from 20+ available extensions including bookmarks, lyrics, shuffle improvements, and more.
+-   **📱 Custom Apps**: Install additional custom applications like History, Visualizer, Better Library, and community-developed apps.
+-   **🔐 GitHub API Integration**: Built-in GitHub token management to avoid download rate limits.
+-   **👨‍💻 Admin-Ready**: Automatically handles Windows Administrator privileges for seamless operation.
+-   **🧹 Complete Cleanup**: Safely remove Spicetify with full restoration of original Spotify.
 
 ---
 
 ## 🚀 Getting Started
 
-Getting started is as simple as downloading a file.
+Getting started is as simple as downloading and running a file.
 
 ### Prerequisites
 
--   **Windows Operating System**
--   **PowerShell 5.1** or higher (pre-installed on Windows 10 and 11).
+-   **Windows Operating System** (Windows 10/11 recommended)
+-   **PowerShell 5.1** or higher (pre-installed on Windows 10 and 11)
+-   **Internet Connection** for downloading Spotify and Spicetify components
 
-### 👉 For Users (Easiest Method)
+### 📁 Project Files
+
+The repository contains the following files:
+-   **`spicetify-plus.exe`**: Ready-to-run executable file (recommended for most users)
+-   **`spicetify-plus.ps1`**: PowerShell source script (for developers and advanced users)
+-   **`README.md`**: English documentation (this file)
+-   **`README-FA.md`**: Persian/Farsi documentation
+
+### 👉 For Users (Recommended Method)
 
 1.  **Download the executable** 📥
-    -   Download the `spicetify-plus.exe` file directly from the repository.
+    -   **Method 1**: Click on `spicetify-plus.exe` in the repository → Click "Download" button
+    -   **Method 2**: Download entire project as ZIP → Extract → Use the `.exe` file
+    -   **Method 3**: Right-click on the file → "Save link as..." (if viewing raw file)
 
 2.  **Run it!** ▶️
-    -   Just double-click the downloaded file. It will handle everything for you, including asking for administrator permissions. That's it!
+    -   Double-click the downloaded `.exe` file
+    -   Allow administrator permissions when prompted
+    -   Follow the interactive menu to install and configure everything
 
-### 🧑‍💻 For Developers
+### 🧑‍💻 For Developers & Advanced Users
 
-Want to see the code or contribute?
+Want to see the code, contribute, or run the PowerShell script directly?
 
 1.  **Download the Source Code** 📦
-    -   You can download the entire project as a `.zip` file by clicking [here](https://github.com/MBNpro-ir/spicetify-plus/archive/refs/heads/main.zip).
+    -   **Option 1**: Clone the repository: `git clone https://github.com/MBNpro-ir/spicetify-plus.git`
+    -   **Option 2**: Download as ZIP by clicking the green "Code" button → "Download ZIP"
+    -   **Option 3**: Download individual files directly from the repository
 
-2.  **Explore the files** 🛠️
-    -   Inside you will find the `spicetify-plus.ps1` PowerShell script that the `.exe` is based on.
+2.  **Run the PowerShell Script** 🛠️
+    -   Open PowerShell as Administrator
+    -   Navigate to the project directory
+    -   Run: `.\spicetify-plus.ps1`
+    -   The script contains the same functionality as the `.exe` file
 
 ---
 
-## 🔧 Menu Options
+## 🔧 Menu Structure & Options
 
-### Main Menu
--   **[1] Install Spotify**: Checks for and installs Spotify if it's missing.
--   **[2] Install Spicetify**: Installs the latest version of Spicetify.
--   **[3] Install Spicetify Marketplace**: Installs Spicetify Marketplace.
--   **[4] Spicetify Settings & Actions**: Opens a detailed sub-menu for advanced management.
--   **[5] Remove Spotify**: Uninstalls Spotify from your system.
--   **[6] Remove Spicetify**: Completely removes all Spicetify files and restores Spotify.
--   **[7] Exit**: Closes the script.
+### 🏠 Main Menu
+-   **[1] Install Spotify**: Automatically detects and installs Spotify if missing (supports both standard and Microsoft Store versions)
+-   **[2] Update Spotify**: Check for Spotify updates and get guidance on updating
+-   **[3] Remove Spotify**: Safely uninstall Spotify with complete cleanup
+-   **[4] Install Spicetify**: Download and install the latest Spicetify-CLI with automatic configuration
+-   **[5] Install Spicetify Marketplace**: Set up the Marketplace for browsing themes and extensions
+-   **[6] Update Spicetify**: Update Spicetify to the latest version while preserving your configuration
+-   **[7] Spicetify Settings**: Access the comprehensive settings and management menu
+-   **[8] Remove Spicetify**: Completely remove Spicetify and restore original Spotify
+-   **[9] GitHub API Token Settings**: Configure GitHub token to avoid rate limits
 
-### Settings & Actions Sub-Menu
-This menu gives you granular control over Spicetify:
--   **Core Actions**: Apply changes, restore backups, refresh themes, etc.
--   **Configuration**: Manage boolean toggles, text settings (like themes), and complex launch flags from intuitive menus.
+### ⚙️ Spicetify Settings Sub-Menu
+Comprehensive management interface with the following sections:
+
+#### Core Actions
+-   **Backup & Apply Changes**: Create Spotify backup and apply all Spicetify modifications
+-   **Restore Spotify**: Restore Spotify to its original, unmodified state
+-   **Force Refresh**: Refresh themes and extensions
+-   **Restart Spotify**: Restart Spotify to apply changes
+
+#### Theme Management
+-   **Install Themes**: Browse and install from 15+ available themes including Dribbblish, Sleek, Text, Turntable, and more
+-   **Configure Current Theme**: Set active theme and color scheme
+-   **Theme Settings**: Manage theme-specific configurations
+
+#### Extension Management
+-   **Install Extensions**: Choose from 20+ extensions including:
+    -   **Auto Skip Video**: Skip region-blocked videos automatically
+    -   **Bookmark**: Save and organize your favorite tracks and playlists
+    -   **Pop-up Lyrics**: Display lyrics in a separate window
+    -   **Shuffle+**: Improved shuffle algorithm using Fisher-Yates
+    -   **Trash Bin**: Hide unwanted songs and artists
+    -   **Keyboard Shortcuts**: Vim-like navigation controls
+    -   **Full App Display**: Minimal album art display with blur effects
+    -   And many more community extensions
+
+#### Custom Apps
+-   **Install Custom Apps**: Add functionality with apps like:
+    -   **History**: Track your listening history
+    -   **Visualizer**: Audio visualization effects
+    -   **Better Library**: Enhanced library management
+    -   **Playlist Tags**: Organize playlists with tags
+    -   **Enhancify**: Additional UI enhancements
+
+#### Configuration Management
+-   **Boolean Settings**: Toggle features like CSS injection, color replacement, experimental features
+-   **Text Settings**: Configure themes, color schemes, custom CSS
+-   **Advanced Settings**: Manage launch flags and advanced Spicetify options
 
 ---
 
 ## ⚠️ Troubleshooting
 
-### GitHub API Rate Limit Error
+### Common Issues & Solutions
 
--   **Problem**: You see an error message like `API rate limit exceeded`. This happens when too many unauthenticated requests are made to GitHub from your IP address.
--   **Solution**: The script allows you to use a GitHub personal access token to prevent this.
-    1.  [Generate a new Personal Access Token](https://github.com/settings/tokens) on GitHub (no scopes/permissions are required for public repos).
-    2.  If you are a developer, open the `spicetify-plus.ps1` script in a text editor.
-    3.  Find the line `$Global:githubToken = ""` at the top of the script.
-    4.  Place your new token inside the quotes.
+#### GitHub API Rate Limit Error
+-   **Problem**: Error message `API rate limit exceeded` appears during downloads
+-   **Cause**: Too many unauthenticated requests to GitHub from your IP address
+-   **Solution**: Configure a GitHub Personal Access Token
+    1.  Go to [GitHub Token Settings](https://github.com/settings/tokens)
+    2.  Generate a new token (no special permissions needed for public repositories)
+    3.  In the script, go to **Main Menu → [9] GitHub API Token Settings**
+    4.  Enter your token when prompted
+    5.  The token will be saved and used automatically for all future downloads
+
+#### Spicetify Not Working After Installation
+-   **Problem**: Spicetify commands not recognized or Spotify looks unchanged
+-   **Solution**:
+    1.  Use **Settings → Core Actions → Backup & Apply Changes**
+    2.  Restart Spotify completely
+    3.  If issues persist, try **Settings → Core Actions → Restore Spotify** then reinstall
+
+#### Spotify Won't Start or Crashes
+-   **Problem**: Spotify fails to launch after applying Spicetify
+-   **Solution**:
+    1.  Use **Settings → Core Actions → Restore Spotify** to revert to original state
+    2.  Restart Spotify to ensure it works normally
+    3.  Try reinstalling Spicetify with a different theme or fewer extensions
+
+#### Extensions Not Appearing
+-   **Problem**: Installed extensions don't show up in Spotify
+-   **Solution**:
+    1.  Ensure you've run **Backup & Apply Changes** after installing extensions
+    2.  Restart Spotify completely (close all Spotify processes)
+    3.  Check that the extension is compatible with your Spicetify version
+
+#### Permission Errors
+-   **Problem**: Access denied or permission errors during installation
+-   **Solution**:
+    1.  Run the script as Administrator (right-click → "Run as administrator")
+    2.  Ensure Spotify is completely closed before making changes
+    3.  Temporarily disable antivirus if it's blocking the script
+
+---
+
+## 🔧 Advanced Usage
+
+### GitHub Token Configuration
+The script includes built-in GitHub API token management to avoid rate limits:
+-   Tokens are stored securely in your user profile directory
+-   Automatic validation and error handling
+-   Environment variable configuration for Spicetify CLI compatibility
+
+### Backup and Restore
+-   Automatic backup creation before applying changes
+-   Safe restore functionality to revert to original Spotify
+-   Configuration preservation during updates
+
+### Custom Installation Paths
+The script automatically handles:
+-   Standard Spotify installations
+-   Microsoft Store Spotify versions
+-   Custom Spicetify installation directories
+-   PATH environment variable management
 
 ---
 
 ## 🤝 Contributing
 
-This project was developed by [MBNpro-ir](https://github.com/MBNpro-ir). Contributions, issues, and feature requests are welcome! Feel free to check the [issues page](https://github.com/MBNpro-ir/spicetify-plus/issues).
+This project is developed and maintained by [MBNpro-ir](https://github.com/MBNpro-ir).
+
+### How to Contribute
+-   🐛 **Report Bugs**: Use the [Issues page](https://github.com/MBNpro-ir/spicetify-plus/issues) to report problems
+-   💡 **Suggest Features**: Share your ideas for new functionality
+-   🔧 **Submit Pull Requests**: Contribute code improvements or new features
+-   📖 **Improve Documentation**: Help make the documentation clearer and more comprehensive
+
+### Development
+-   The main script is `spicetify-plus.ps1` written in PowerShell
+-   The executable is compiled from the PowerShell script for easier distribution
+-   All GitHub API interactions include proper error handling and rate limit management
+
+---
 
 ## 📄 License
 
-This project is open-source. Feel free to use and modify it as you see fit.
+This project is open-source and available under the MIT License. Feel free to use, modify, and distribute it as you see fit.
+
+---
+
+## 🙏 Acknowledgments
+
+-   **Spicetify Team**: For creating the amazing Spicetify CLI tool
+-   **Spotify**: For the music streaming platform that makes this all possible
+-   **Community Contributors**: For themes, extensions, and feedback that make this tool better
+-   **AI Assistance**: For helping with development and refinement
+
+---
+
+## 📞 Support
+
+If you encounter any issues or need help:
+
+1.  Check the [Troubleshooting](#️-troubleshooting) section above
+2.  Search existing [Issues](https://github.com/MBNpro-ir/spicetify-plus/issues) for similar problems
+3.  Create a new issue with detailed information about your problem
+4.  Include your Windows version, PowerShell version, and any error messages
+
+**Enjoy your customized Spotify experience! 🎵✨**
