@@ -245,3 +245,5 @@ If you encounter any issues or need help:
 4.  Include your Windows version, PowerShell version, and any error messages
 
 **Enjoy your customized Spotify experience! 🎵✨**
+
+<img width="1163" height="641" alt="image" src="https://github.com/user-attachments/assets/ba816d53-dc0b-4896-8484-ee95ef452df3" />
