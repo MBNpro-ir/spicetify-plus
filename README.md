@@ -103,8 +103,18 @@ Comprehensive management interface with the following sections:
 #### Core Actions
 -   **Backup & Apply Changes**: Create Spotify backup and apply all Spicetify modifications
 -   **Restore Spotify**: Restore Spotify to its original, unmodified state
--   **Force Refresh**: Refresh themes and extensions
--   **Restart Spotify**: Restart Spotify to apply changes
+-   **Advanced Refresh & Watch Operations**: Granular control over refreshing and real-time monitoring
+    -   Refresh Theme (CSS, JS, Colors, Assets)
+    -   Refresh Extensions Only
+    -   Refresh Custom Apps Only
+    -   Refresh Active Theme Only
+    -   Watch Extensions (auto-refresh on file changes)
+    -   Watch Custom Apps (auto-refresh on file changes)
+    -   Watch Active Theme (auto-refresh on file changes)
+    -   Watch All Components (comprehensive monitoring)
+-   **Clear Backup Files**: Clean up old backup files to free space
+-   **Enable/Disable Developer Tools**: Toggle Spotify developer console access
+-   **Block/Unblock Spotify Updates**: Control Spotify's auto-update behavior
 
 #### Theme Management
 -   **Install Themes**: Browse and install from 15+ available themes including Dribbblish, Sleek, Text, Turntable, and more
@@ -130,10 +140,28 @@ Comprehensive management interface with the following sections:
     -   **Playlist Tags**: Organize playlists with tags
     -   **Enhancify**: Additional UI enhancements
 
+#### Theme & Colors
+-   **Manage Theme Colors**: Advanced color management system
+    -   View All Colors (with color preview)
+    -   Change Single Color
+    -   Change Multiple Colors
+    -   Reset Colors to Theme Default
+
 #### Configuration Management
 -   **Boolean Settings**: Toggle features like CSS injection, color replacement, experimental features
 -   **Text Settings**: Configure themes, color schemes, custom CSS
 -   **Advanced Settings**: Manage launch flags and advanced Spicetify options
+
+#### Path & Directory Management
+-   **Path Information**: View important Spicetify paths
+    -   Show Spotify Executable Path
+    -   Show Spicetify Userdata Path
+    -   Show All Paths
+    -   Show Extensions Path
+    -   Show Custom Apps Path
+    -   Show Active Theme Path
+    -   Show Config File Path
+    -   Open Config Directory in File Explorer
 
 ---
 
@@ -223,6 +251,49 @@ This project is developed and maintained by [MBNpro-ir](https://github.com/MBNpr
 ## 📄 License
 
 This project is open-source and available under the MIT License. Feel free to use, modify, and distribute it as you see fit.
+
+---
+
+## 📅 Changelog
+
+### Version 2.1.0 - September 18, 2025
+
+#### 🆕 New Features
+-   **Advanced Refresh & Watch Operations**: Granular control over refreshing and real-time file monitoring
+    -   Individual refresh options for themes, extensions, and custom apps
+    -   Watch mode with auto-refresh capabilities for development
+    -   Interactive confirmation and clear instructions for watch commands
+-   **Theme Colors Management**: Complete color customization system
+    -   View all theme colors with visual preview
+    -   Change individual colors or multiple colors at once
+    -   Reset colors to theme defaults
+-   **Path & Directory Management**: Comprehensive path information and navigation
+    -   View all important Spicetify and Spotify paths
+    -   Quick access to config directory in File Explorer
+    -   Detailed path information for troubleshooting
+-   **Clear Backup Files**: Clean up old backup files to free disk space
+-   **Enhanced Developer Tools**: Toggle Spotify developer console access
+-   **Spotify Updates Control**: Block or unblock Spotify automatic updates
+
+#### 🔧 Improvements
+-   **GitHub Token Integration**: All installation functions now properly use GitHub API tokens
+    -   Eliminates rate limiting issues during downloads
+    -   Improved download speeds and reliability
+    -   Better error handling for API requests
+-   **Watch Commands Fixed**: Resolved issues with watch mode operations
+    -   Added proper user guidance and confirmation prompts
+    -   Improved error handling and graceful exit from watch mode
+    -   Clear instructions for stopping watch operations
+-   **Enhanced Menu Organization**: Reorganized settings menu for better user experience
+    -   Logical grouping of related functions
+    -   Clearer option numbering and descriptions
+    -   Improved visual hierarchy
+
+#### 🐛 Bug Fixes
+-   Fixed validation issues in Launch Flags Management
+-   Resolved string/numeric comparison problems in user input handling
+-   Corrected GitHub token handling across all download functions
+-   Fixed watch command execution and proper return to menu
 
 ---
 
