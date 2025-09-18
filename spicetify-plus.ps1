@@ -1102,24 +1102,326 @@ function Show-SettingsMenu {
     Write-Host "|   Core Actions:                                              |" -ForegroundColor 'Gray'
     Write-Host "|     [1] Backup & Apply Changes                               |" -ForegroundColor 'White'
     Write-Host "|     [2] Restore Spotify to Original                          |" -ForegroundColor 'White'
-    Write-Host "|     [3] Force Refresh Theme/Extensions                       |" -ForegroundColor 'White'
-    Write-Host "|     [4] Enable/Disable Spotify Developer Tools               |" -ForegroundColor 'White'
-    Write-Host "|     [5] Block/Unblock Spotify Updates                        |" -ForegroundColor 'White'
+    Write-Host "|     [3] Advanced Refresh & Watch Operations                  |" -ForegroundColor 'White'
+    Write-Host "|     [4] Clear Backup Files                                   |" -ForegroundColor 'White'
+    Write-Host "|     [5] Enable/Disable Spotify Developer Tools               |" -ForegroundColor 'White'
+    Write-Host "|     [6] Block/Unblock Spotify Updates                        |" -ForegroundColor 'White'
     Write-Host "|                                                              |" -ForegroundColor 'Magenta'
     Write-Host "|   Extensions & Apps:                                         |" -ForegroundColor 'Gray'
-    Write-Host "|     [6] Manage Extensions                                    |" -ForegroundColor 'White'
-    Write-Host "|     [7] Manage Custom Apps                                   |" -ForegroundColor 'White'
+    Write-Host "|     [7] Manage Extensions                                    |" -ForegroundColor 'White'
+    Write-Host "|     [8] Manage Custom Apps                                   |" -ForegroundColor 'White'
+    Write-Host "|                                                              |" -ForegroundColor 'Magenta'
+    Write-Host "|   Theme & Colors:                                            |" -ForegroundColor 'Gray'
+    Write-Host "|     [9] Manage Theme Colors                                  |" -ForegroundColor 'White'
     Write-Host "|                                                              |" -ForegroundColor 'Magenta'
     Write-Host "|   Configuration:                                             |" -ForegroundColor 'Gray'
-    Write-Host "|     [8] Manage Toggles (CSS, Sentry, etc.)                   |" -ForegroundColor 'White'
-    Write-Host "|     [9] Manage Text/Path Settings (Theme, etc.)              |" -ForegroundColor 'White'
-    Write-Host "|    [10] Manage Spotify Launch Flags                          |" -ForegroundColor 'White'
+    Write-Host "|    [10] Manage Toggles (CSS, Sentry, etc.)                   |" -ForegroundColor 'White'
+    Write-Host "|    [11] Manage Text/Path Settings (Theme, etc.)              |" -ForegroundColor 'White'
+    Write-Host "|    [12] Manage Spotify Launch Flags                          |" -ForegroundColor 'White'
+    Write-Host "|                                                              |" -ForegroundColor 'Magenta'
+    Write-Host "|   Path & Directory:                                          |" -ForegroundColor 'Gray'
+    Write-Host "|    [13] Path & Directory Management                          |" -ForegroundColor 'White'
     Write-Host "|                                                              |" -ForegroundColor 'Magenta'
     Write-Host "|   Debug:                                                     |" -ForegroundColor 'Gray'
-    Write-Host "|    [11] Show Raw Spicetify Config Output                     |" -ForegroundColor 'Yellow'
+    Write-Host "|    [14] Show Raw Spicetify Config Output                     |" -ForegroundColor 'Yellow'
     Write-Host "|                                                              |" -ForegroundColor 'Magenta'
-    Write-Host "|    [12] Back to Main Menu                                    |" -ForegroundColor 'White'
+    Write-Host "|    [15] Back to Main Menu                                    |" -ForegroundColor 'White'
     Write-Host "+==============================================================+" -ForegroundColor 'Magenta'
+}
+
+function Clear-SpicetifyBackup {
+    try {
+        Write-Host "Clearing Spicetify backup files..." -ForegroundColor 'Cyan'
+        
+        $result = Invoke-Spicetify "clear"
+        
+        if ($result -eq 0) {
+            Write-Host "Backup files cleared successfully!" -ForegroundColor 'Green'
+        } else {
+            Write-Host "Clear operation may have issues. Check output above." -ForegroundColor 'Yellow'
+        }
+    }
+    catch {
+        Write-Error-Message $_.Exception.Message
+    }
+}
+
+function Manage-RefreshWatch {
+    while ($true) {
+        try {
+            Clear-Host
+            Write-Host "--- Advanced Refresh & Watch Operations ---" -ForegroundColor 'Yellow'
+            Write-Host ""
+            Write-Host "Refresh Commands:" -ForegroundColor 'Cyan'
+            Write-Host "[1] Refresh Theme (CSS, JS, Colors, Assets)" -ForegroundColor 'White'
+            Write-Host "[2] Refresh Extensions Only" -ForegroundColor 'White'
+            Write-Host "[3] Refresh Custom Apps Only" -ForegroundColor 'White'
+            Write-Host "[4] Refresh Active Theme Only" -ForegroundColor 'White'
+            Write-Host ""
+            Write-Host "Watch Commands (Auto-refresh on file changes):" -ForegroundColor 'Cyan'
+            Write-Host "[5] Watch Extensions" -ForegroundColor 'White'
+            Write-Host "[6] Watch Custom Apps" -ForegroundColor 'White'
+            Write-Host "[7] Watch Active Theme" -ForegroundColor 'White'
+            Write-Host "[8] Watch All (Extensions + Apps + Theme)" -ForegroundColor 'White'
+            Write-Host ""
+            Write-Host "[9] Back to Settings Menu" -ForegroundColor 'Yellow'
+            
+            $choice = Read-Host -Prompt "Choose an option (1-9)"
+            
+            if ($choice -eq '9') { break }
+            elseif ($choice -eq '1') {
+                Write-Host "Refreshing theme..." -ForegroundColor 'Cyan'
+                Invoke-Spicetify "refresh" | Out-Null
+                Write-Host "Theme refreshed successfully!" -ForegroundColor 'Green'
+                Press-EnterToContinue
+            }
+            elseif ($choice -eq '2') {
+                Write-Host "Refreshing extensions..." -ForegroundColor 'Cyan'
+                Invoke-Spicetify "refresh" "-e" | Out-Null
+                Write-Host "Extensions refreshed successfully!" -ForegroundColor 'Green'
+                Press-EnterToContinue
+            }
+            elseif ($choice -eq '3') {
+                Write-Host "Refreshing custom apps..." -ForegroundColor 'Cyan'
+                Invoke-Spicetify "refresh" "-a" | Out-Null
+                Write-Host "Custom apps refreshed successfully!" -ForegroundColor 'Green'
+                Press-EnterToContinue
+            }
+            elseif ($choice -eq '4') {
+                Write-Host "Refreshing active theme..." -ForegroundColor 'Cyan'
+                Invoke-Spicetify "refresh" "-s" | Out-Null
+                Write-Host "Active theme refreshed successfully!" -ForegroundColor 'Green'
+                Press-EnterToContinue
+            }
+            elseif ($choice -eq '5') {
+                Write-Host "=== Watch Mode for Extensions ===" -ForegroundColor 'Yellow'
+                Write-Host "This will start monitoring your extensions for changes." -ForegroundColor 'Cyan'
+                Write-Host "The script will stay active and auto-reload Spotify when extension files change." -ForegroundColor 'Gray'
+                Write-Host ""
+                Write-Host "IMPORTANT: Press Ctrl+C to stop watch mode and return to menu." -ForegroundColor 'Red'
+                Write-Host "Ready to start? Press Enter to continue or Ctrl+C to cancel..." -ForegroundColor 'Yellow'
+                Read-Host
+                Write-Host "Starting watch mode for extensions..." -ForegroundColor 'Cyan'
+                try {
+                    Invoke-Spicetify "watch" "-e"
+                } catch {
+                    Write-Host "Watch mode stopped." -ForegroundColor 'Yellow'
+                }
+                Press-EnterToContinue
+            }
+            elseif ($choice -eq '6') {
+                Write-Host "=== Watch Mode for Custom Apps ===" -ForegroundColor 'Yellow'
+                Write-Host "This will start monitoring your custom apps for changes." -ForegroundColor 'Cyan'
+                Write-Host "The script will stay active and auto-reload Spotify when app files change." -ForegroundColor 'Gray'
+                Write-Host ""
+                Write-Host "IMPORTANT: Press Ctrl+C to stop watch mode and return to menu." -ForegroundColor 'Red'
+                Write-Host "Ready to start? Press Enter to continue or Ctrl+C to cancel..." -ForegroundColor 'Yellow'
+                Read-Host
+                Write-Host "Starting watch mode for custom apps..." -ForegroundColor 'Cyan'
+                try {
+                    Invoke-Spicetify "watch" "-a"
+                } catch {
+                    Write-Host "Watch mode stopped." -ForegroundColor 'Yellow'
+                }
+                Press-EnterToContinue
+            }
+            elseif ($choice -eq '7') {
+                Write-Host "=== Watch Mode for Active Theme ===" -ForegroundColor 'Yellow'
+                Write-Host "This will start monitoring your active theme for changes." -ForegroundColor 'Cyan'
+                Write-Host "The script will stay active and auto-reload Spotify when theme files change." -ForegroundColor 'Gray'
+                Write-Host ""
+                Write-Host "IMPORTANT: Press Ctrl+C to stop watch mode and return to menu." -ForegroundColor 'Red'
+                Write-Host "Ready to start? Press Enter to continue or Ctrl+C to cancel..." -ForegroundColor 'Yellow'
+                Read-Host
+                Write-Host "Starting watch mode for active theme..." -ForegroundColor 'Cyan'
+                try {
+                    Invoke-Spicetify "watch" "-s"
+                } catch {
+                    Write-Host "Watch mode stopped." -ForegroundColor 'Yellow'
+                }
+                Press-EnterToContinue
+            }
+            elseif ($choice -eq '8') {
+                Write-Host "=== Watch Mode for All Components ===" -ForegroundColor 'Yellow'
+                Write-Host "This will start monitoring ALL components (extensions, apps, theme) for changes." -ForegroundColor 'Cyan'
+                Write-Host "The script will stay active and auto-reload Spotify when any files change." -ForegroundColor 'Gray'
+                Write-Host ""
+                Write-Host "IMPORTANT: Press Ctrl+C to stop watch mode and return to menu." -ForegroundColor 'Red'
+                Write-Host "Ready to start? Press Enter to continue or Ctrl+C to cancel..." -ForegroundColor 'Yellow'
+                Read-Host
+                Write-Host "Starting watch mode for all components..." -ForegroundColor 'Cyan'
+                try {
+                    Invoke-Spicetify "watch" "-l"
+                } catch {
+                    Write-Host "Watch mode stopped." -ForegroundColor 'Yellow'
+                }
+                Press-EnterToContinue
+            }
+            else { 
+                Write-Warning "Invalid selection."
+                Press-EnterToContinue 
+            }
+        }
+        catch { 
+            Write-Error-Message $_.Exception.Message
+            Press-EnterToContinue 
+        }
+    }
+}
+
+function Manage-Colors {
+    while ($true) {
+        try {
+            Clear-Host
+            Write-Host "--- Theme Colors Management ---" -ForegroundColor 'Yellow'
+            
+            # Show current colors
+            Write-Host "Current Colors:" -ForegroundColor 'Cyan'
+            $colorsOutput = Invoke-SpicetifyWithOutput "color"
+            if ($colorsOutput) {
+                Write-Host $colorsOutput -ForegroundColor 'Gray'
+            } else {
+                Write-Host "No colors configured or theme not found." -ForegroundColor 'Gray'
+            }
+            
+            Write-Host ""
+            Write-Host "[1] View All Colors (with color preview)" -ForegroundColor 'White'
+            Write-Host "[2] Change Single Color" -ForegroundColor 'White'
+            Write-Host "[3] Change Multiple Colors" -ForegroundColor 'White'
+            Write-Host "[4] Reset Colors to Theme Default" -ForegroundColor 'White'
+            Write-Host "[5] Back to Settings Menu" -ForegroundColor 'Yellow'
+            
+            $choice = Read-Host -Prompt "Choose an option (1-5)"
+            
+            if ($choice -eq '5') { break }
+            elseif ($choice -eq '1') {
+                Write-Host "--- All Theme Colors ---" -ForegroundColor 'Yellow'
+                Invoke-Spicetify "color"
+                Press-EnterToContinue
+            }
+            elseif ($choice -eq '2') {
+                $colorName = Read-Host "Enter color name (e.g., main, sidebar, button)"
+                if ($colorName) {
+                    $colorValue = Read-Host "Enter color value (hex like ff0000 or decimal like 255,0,0)"
+                    if ($colorValue) {
+                        Invoke-Spicetify "color" "$colorName" "$colorValue" | Out-Null
+                        Write-Host "Color '$colorName' changed to '$colorValue' successfully!" -ForegroundColor 'Green'
+                        Press-EnterToContinue
+                    }
+                }
+            }
+            elseif ($choice -eq '3') {
+                Write-Host "Enter multiple colors in format: colorName1 colorValue1 colorName2 colorValue2"
+                Write-Host "Example: main ff0000 sidebar 00ff00 button 0000ff" -ForegroundColor 'Gray'
+                $colorsInput = Read-Host "Enter colors"
+                if ($colorsInput) {
+                    $colorArgs = $colorsInput.Split(' ')
+                    $allArgs = @("color") + $colorArgs
+                    Invoke-Spicetify $allArgs | Out-Null
+                    Write-Host "Multiple colors changed successfully!" -ForegroundColor 'Green'
+                    Press-EnterToContinue
+                }
+            }
+            elseif ($choice -eq '4') {
+                $confirmation = Read-Host "Reset all colors to theme default? This will undo custom color changes. (y/n)"
+                if ($confirmation -eq 'y' -or $confirmation -eq 'Y') {
+                    # Apply theme to reset colors
+                    Invoke-Spicetify "apply" | Out-Null
+                    Write-Host "Colors reset to theme default!" -ForegroundColor 'Green'
+                    Press-EnterToContinue
+                }
+            }
+            else { 
+                Write-Warning "Invalid selection."
+                Press-EnterToContinue 
+            }
+        }
+        catch { 
+            Write-Error-Message $_.Exception.Message
+            Press-EnterToContinue 
+        }
+    }
+}
+
+function Manage-PathDirectory {
+    while ($true) {
+        try {
+            Clear-Host
+            Write-Host "--- Path & Directory Management ---" -ForegroundColor 'Yellow'
+            
+            Write-Host ""
+            Write-Host "Path Commands:" -ForegroundColor 'Cyan'
+            Write-Host "[1] Show Spotify Executable Path" -ForegroundColor 'White'
+            Write-Host "[2] Show Spicetify Userdata Path" -ForegroundColor 'White'
+            Write-Host "[3] Show All Paths" -ForegroundColor 'White'
+            Write-Host "[4] Show Extensions Path" -ForegroundColor 'White'
+            Write-Host "[5] Show Custom Apps Path" -ForegroundColor 'White'
+            Write-Host "[6] Show Active Theme Path" -ForegroundColor 'White'
+            Write-Host "[7] Show Config File Path" -ForegroundColor 'White'
+            Write-Host ""
+            Write-Host "Directory Commands:" -ForegroundColor 'Cyan'
+            Write-Host "[8] Open Config Directory in File Explorer" -ForegroundColor 'White'
+            Write-Host ""
+            Write-Host "[9] Back to Settings Menu" -ForegroundColor 'Yellow'
+            
+            $choice = Read-Host -Prompt "Choose an option (1-9)"
+            
+            if ($choice -eq '9') { break }
+            elseif ($choice -eq '1') {
+                Write-Host "--- Spotify Executable Path ---" -ForegroundColor 'Yellow'
+                $path = Invoke-SpicetifyWithOutput "path"
+                Write-Host $path -ForegroundColor 'Cyan'
+                Press-EnterToContinue
+            }
+            elseif ($choice -eq '2') {
+                Write-Host "--- Spicetify Userdata Path ---" -ForegroundColor 'Yellow'
+                $path = Invoke-SpicetifyWithOutput "path" "userdata"
+                Write-Host $path -ForegroundColor 'Cyan'
+                Press-EnterToContinue
+            }
+            elseif ($choice -eq '3') {
+                Write-Host "--- All Paths ---" -ForegroundColor 'Yellow'
+                Invoke-Spicetify "path" "all"
+                Press-EnterToContinue
+            }
+            elseif ($choice -eq '4') {
+                Write-Host "--- Extensions Path ---" -ForegroundColor 'Yellow'
+                $path = Invoke-SpicetifyWithOutput "path" "-e"
+                Write-Host $path -ForegroundColor 'Cyan'
+                Press-EnterToContinue
+            }
+            elseif ($choice -eq '5') {
+                Write-Host "--- Custom Apps Path ---" -ForegroundColor 'Yellow'
+                $path = Invoke-SpicetifyWithOutput "path" "-a"
+                Write-Host $path -ForegroundColor 'Cyan'
+                Press-EnterToContinue
+            }
+            elseif ($choice -eq '6') {
+                Write-Host "--- Active Theme Path ---" -ForegroundColor 'Yellow'
+                $path = Invoke-SpicetifyWithOutput "path" "-s"
+                Write-Host $path -ForegroundColor 'Cyan'
+                Press-EnterToContinue
+            }
+            elseif ($choice -eq '7') {
+                Write-Host "--- Config File Path ---" -ForegroundColor 'Yellow'
+                $path = Invoke-SpicetifyWithOutput "path" "-c"
+                Write-Host $path -ForegroundColor 'Cyan'
+                Press-EnterToContinue
+            }
+            elseif ($choice -eq '8') {
+                Write-Host "Opening config directory in file explorer..." -ForegroundColor 'Cyan'
+                Invoke-Spicetify "config-dir"
+            }
+            else { 
+                Write-Warning "Invalid selection."
+                Press-EnterToContinue 
+            }
+        }
+        catch { 
+            Write-Error-Message $_.Exception.Message
+            Press-EnterToContinue 
+        }
+    }
 }
 
 function Manage-Toggles {
@@ -1132,7 +1434,15 @@ function Manage-Toggles {
 
             $i = 1
             foreach ($toggle in $toggles) {
-                $value = ($currentConfig -split '\r?\n' | Where-Object { $_ -match "^$toggle\s" }).Split(' ')[-1]
+                $value = '0'  # Default to disabled
+                $configLine = ($currentConfig -split '\r?\n' | Where-Object { $_ -match "^$([regex]::Escape($toggle))" } | Select-Object -First 1)
+                if ($configLine) {
+                    if ($configLine -match "^$([regex]::Escape($toggle))\s*=\s*(.+)$") {
+                        $value = $matches[1].Trim()
+                    } elseif ($configLine -match "^$([regex]::Escape($toggle))\s+(.+)$") {
+                        $value = $matches[1].Trim()
+                    }
+                }
                 $status = if ($value -eq '1') { "[ENABLED]" } else { "[DISABLED]" }
                 Write-Host "[$i] Toggle '$toggle' " -NoNewline; Write-Host $status -ForegroundColor $(if ($value -eq '1') { 'Green' } else { 'Red' })
                 $i++
@@ -1141,14 +1451,25 @@ function Manage-Toggles {
             Write-Host "[$backOption] Back to Settings Menu"
             $choice = Read-Host -Prompt "Enter a number to toggle, or '$backOption' to go back"
 
-            if ($choice -eq $backOption) { break }
-            elseif ($choice -match '^\d+$' -and $choice -gt 0 -and $choice -lt $backOption) {
+            if ($choice -eq $backOption -or $choice -eq "$backOption") { break }
+            elseif ($choice -match '^\d+$' -and [int]$choice -gt 0 -and [int]$choice -lt $backOption) {
                 $selectedIndex = [int]$choice - 1
                 $selectedToggle = $toggles[$selectedIndex]
-                $currentValue = ($currentConfig -split '\r?\n' | Where-Object { $_ -match "^$selectedToggle\s" }).Split(' ')[-1]
+                
+                # Get current value using the same method as display
+                $currentValue = '0'  # Default to disabled
+                $configLine = ($currentConfig -split '\r?\n' | Where-Object { $_ -match "^$([regex]::Escape($selectedToggle))" } | Select-Object -First 1)
+                if ($configLine) {
+                    if ($configLine -match "^$([regex]::Escape($selectedToggle))\s*=\s*(.+)$") {
+                        $currentValue = $matches[1].Trim()
+                    } elseif ($configLine -match "^$([regex]::Escape($selectedToggle))\s+(.+)$") {
+                        $currentValue = $matches[1].Trim()
+                    }
+                }
+                
                 $newValue = if ($currentValue -eq '1') { '0' } else { '1' }
                 Invoke-Spicetify "config" "$selectedToggle" "$newValue" | Out-Null
-                Write-Host "Toggled '$selectedToggle' to '$newValue'." -ForegroundColor 'Green'
+                Write-Host "Toggled '$selectedToggle' from '$currentValue' to '$newValue'." -ForegroundColor 'Green'
                 Start-Sleep -Seconds 1
             }
             else { Write-Warning "Invalid selection."; Press-EnterToContinue }
@@ -2166,8 +2487,14 @@ function Install-Lyrixed {
         $downloadUrl = "https://github.com/Nuzair46/Lyrixed/releases/latest/download/lyrixed.zip"
         $zipFile = "$env:TEMP\lyrixed.zip"
 
-        Invoke-WebRequest -Uri $downloadUrl -OutFile $zipFile -ErrorAction Stop
-        Write-Success
+        if (-not [string]::IsNullOrWhiteSpace($Global:githubToken)) {
+            $headers = @{ "Authorization" = "Bearer $Global:githubToken" }
+            Invoke-WebRequest -Uri $downloadUrl -OutFile $zipFile -Headers $headers -ErrorAction Stop
+            Write-Host " (using GitHub token)" -ForegroundColor 'Green'
+        } else {
+            Invoke-WebRequest -Uri $downloadUrl -OutFile $zipFile -ErrorAction Stop
+            Write-Host " (no GitHub token)" -ForegroundColor 'Yellow'
+        }
 
         # Extract and setup
         Write-Host "Extracting and setting up..." -NoNewline
@@ -2218,7 +2545,12 @@ function Install-HistoryInSidebar {
         $downloadUrl = "https://github.com/Bergbok/Spicetify-Creations/archive/refs/heads/dist/history-in-sidebar.zip"
         $zipFile = "$env:TEMP\history-in-sidebar.zip"
 
-        Invoke-WebRequest -Uri $downloadUrl -OutFile $zipFile -ErrorAction Stop
+        if (-not [string]::IsNullOrWhiteSpace($Global:githubToken)) {
+            $headers = @{ "Authorization" = "Bearer $Global:githubToken" }
+            Invoke-WebRequest -Uri $downloadUrl -OutFile $zipFile -Headers $headers -ErrorAction Stop
+        } else {
+            Invoke-WebRequest -Uri $downloadUrl -OutFile $zipFile -ErrorAction Stop
+        }
         Write-Success
 
         # Extract and setup
@@ -2279,7 +2611,12 @@ function Install-PlaylistTags {
         $downloadUrl = "https://github.com/Bergbok/Spicetify-Creations/archive/refs/heads/dist/playlist-tags.zip"
         $zipFile = "$env:TEMP\playlist-tags.zip"
 
-        Invoke-WebRequest -Uri $downloadUrl -OutFile $zipFile -ErrorAction Stop
+        if (-not [string]::IsNullOrWhiteSpace($Global:githubToken)) {
+            $headers = @{ "Authorization" = "Bearer $Global:githubToken" }
+            Invoke-WebRequest -Uri $downloadUrl -OutFile $zipFile -Headers $headers -ErrorAction Stop
+        } else {
+            Invoke-WebRequest -Uri $downloadUrl -OutFile $zipFile -ErrorAction Stop
+        }
         Write-Success
 
         # Extract and setup
@@ -2426,7 +2763,12 @@ function Install-Visualizer {
         $downloadUrl = "https://github.com/Konsl/spicetify-visualizer/archive/refs/heads/dist.zip"
         $zipFile = "$env:TEMP\visualizer.zip"
 
-        Invoke-WebRequest -Uri $downloadUrl -OutFile $zipFile -ErrorAction Stop
+        if (-not [string]::IsNullOrWhiteSpace($Global:githubToken)) {
+            $headers = @{ "Authorization" = "Bearer $Global:githubToken" }
+            Invoke-WebRequest -Uri $downloadUrl -OutFile $zipFile -Headers $headers -ErrorAction Stop
+        } else {
+            Invoke-WebRequest -Uri $downloadUrl -OutFile $zipFile -ErrorAction Stop
+        }
         Write-Success
 
         # Extract and setup
@@ -2505,7 +2847,12 @@ function Install-SpicetifyStats {
         $downloadUrl = $latestStatsRelease.assets[0].browser_download_url
         $zipFile = "$env:TEMP\spicetify-stats.zip"
 
-        Invoke-WebRequest -Uri $downloadUrl -OutFile $zipFile -ErrorAction Stop
+        if (-not [string]::IsNullOrWhiteSpace($Global:githubToken)) {
+            $headers = @{ "Authorization" = "Bearer $Global:githubToken" }
+            Invoke-WebRequest -Uri $downloadUrl -OutFile $zipFile -Headers $headers -ErrorAction Stop
+        } else {
+            Invoke-WebRequest -Uri $downloadUrl -OutFile $zipFile -ErrorAction Stop
+        }
         Write-Success
 
         # Extract and setup
@@ -2577,7 +2924,13 @@ function Install-SpicetifyLibrary {
         }
 
         $zipFile = "$env:TEMP\spicetify-library.zip"
-        Invoke-WebRequest -Uri $downloadUrl -OutFile $zipFile -ErrorAction Stop
+        
+        if (-not [string]::IsNullOrWhiteSpace($Global:githubToken)) {
+            $headers = @{ "Authorization" = "Bearer $Global:githubToken" }
+            Invoke-WebRequest -Uri $downloadUrl -OutFile $zipFile -Headers $headers -ErrorAction Stop
+        } else {
+            Invoke-WebRequest -Uri $downloadUrl -OutFile $zipFile -ErrorAction Stop
+        }
         Write-Success
 
         # Extract and setup
@@ -2638,7 +2991,12 @@ function Install-PithayaApp {
         $downloadUrl = "https://github.com/Pithaya/spicetify-apps-dist/archive/refs/heads/dist/$AppName.zip"
         $zipFile = "$env:TEMP\$AppName.zip"
 
-        Invoke-WebRequest -Uri $downloadUrl -OutFile $zipFile -ErrorAction Stop
+        if (-not [string]::IsNullOrWhiteSpace($Global:githubToken)) {
+            $headers = @{ "Authorization" = "Bearer $Global:githubToken" }
+            Invoke-WebRequest -Uri $downloadUrl -OutFile $zipFile -Headers $headers -ErrorAction Stop
+        } else {
+            Invoke-WebRequest -Uri $downloadUrl -OutFile $zipFile -ErrorAction Stop
+        }
         Write-Success
 
         # Extract and setup
@@ -2704,7 +3062,12 @@ function Install-NameThatTune {
         $downloadUrl = "https://github.com/theRealPadster/name-that-tune/archive/refs/heads/dist.zip"
         $zipFile = "$env:TEMP\name-that-tune.zip"
 
-        Invoke-WebRequest -Uri $downloadUrl -OutFile $zipFile -ErrorAction Stop
+        if (-not [string]::IsNullOrWhiteSpace($Global:githubToken)) {
+            $headers = @{ "Authorization" = "Bearer $Global:githubToken" }
+            Invoke-WebRequest -Uri $downloadUrl -OutFile $zipFile -Headers $headers -ErrorAction Stop
+        } else {
+            Invoke-WebRequest -Uri $downloadUrl -OutFile $zipFile -ErrorAction Stop
+        }
         Write-Success
 
         # Extract and setup
@@ -2763,7 +3126,12 @@ function Install-CombinedPlaylists {
         $downloadUrl = "https://github.com/jeroentvb/spicetify-combined-playlists/archive/refs/heads/dist.zip"
         $zipFile = "$env:TEMP\combined-playlists.zip"
 
-        Invoke-WebRequest -Uri $downloadUrl -OutFile $zipFile -ErrorAction Stop
+        if (-not [string]::IsNullOrWhiteSpace($Global:githubToken)) {
+            $headers = @{ "Authorization" = "Bearer $Global:githubToken" }
+            Invoke-WebRequest -Uri $downloadUrl -OutFile $zipFile -Headers $headers -ErrorAction Stop
+        } else {
+            Invoke-WebRequest -Uri $downloadUrl -OutFile $zipFile -ErrorAction Stop
+        }
         Write-Success
 
         # Extract and setup
@@ -2845,7 +3213,13 @@ function Install-BeatSaber {
         }
 
         $zipFile = "$env:TEMP\beatsaber.zip"
-        Invoke-WebRequest -Uri $downloadUrl -OutFile $zipFile -ErrorAction Stop
+        
+        if (-not [string]::IsNullOrWhiteSpace($Global:githubToken)) {
+            $headers = @{ "Authorization" = "Bearer $Global:githubToken" }
+            Invoke-WebRequest -Uri $downloadUrl -OutFile $zipFile -Headers $headers -ErrorAction Stop
+        } else {
+            Invoke-WebRequest -Uri $downloadUrl -OutFile $zipFile -ErrorAction Stop
+        }
         Write-Success
 
         # Extract and setup
@@ -3305,45 +3679,246 @@ function Manage-CustomApps {
     }
 }
 
+# Function to get Spotify exe path
+function Get-SpotifyExePath {
+    # Common locations for Spotify executable
+    $spotifyPaths = @(
+        "$env:APPDATA\Spotify\Spotify.exe",
+        "$env:LOCALAPPDATA\Spotify\Spotify.exe"
+    )
+    
+    foreach ($path in $spotifyPaths) {
+        if (Test-Path $path) {
+            return $path
+        }
+    }
+    
+    # If not found in common locations, try to find it via registry
+    $regPaths = @('HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\*', 'HKCU:\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\*')
+    foreach ($regPath in $regPaths) {
+        try {
+            $items = Get-ItemProperty $regPath -ErrorAction SilentlyContinue | Where-Object { $_.DisplayName -like '*Spotify*' }
+            foreach ($item in $items) {
+                if ($item.InstallLocation) {
+                    $exePath = Join-Path $item.InstallLocation "Spotify.exe"
+                    if (Test-Path $exePath) {
+                        return $exePath
+                    }
+                }
+            }
+        } catch {
+            continue
+        }
+    }
+    
+    return $null
+}
+
+# Function to get desktop path
+function Get-DesktopPath {
+    return [Environment]::GetFolderPath("Desktop")
+}
+
+# Function to create Spotify shortcut on desktop
+function New-SpotifyDesktopShortcut {
+    param(
+        [string]$SpotifyExePath,
+        [string[]]$LaunchFlags = @()
+    )
+    
+    try {
+        $desktopPath = Get-DesktopPath
+        $shortcutPath = Join-Path $desktopPath "Spotify.lnk"
+        
+        # Create WScript.Shell COM object
+        $WshShell = New-Object -comObject WScript.Shell
+        $Shortcut = $WshShell.CreateShortcut($shortcutPath)
+        $Shortcut.TargetPath = $SpotifyExePath
+        
+        # Set arguments if flags are provided
+        if ($LaunchFlags.Count -gt 0) {
+            $Shortcut.Arguments = ($LaunchFlags -join ' ')
+        }
+        
+        $Shortcut.WorkingDirectory = Split-Path $SpotifyExePath
+        $Shortcut.IconLocation = $SpotifyExePath
+        $Shortcut.Description = "Spotify Music"
+        $Shortcut.Save()
+        
+        return $true
+    }
+    catch {
+        Write-Host "Error creating shortcut: $($_.Exception.Message)" -ForegroundColor 'Red'
+        return $false
+    }
+}
+
+# Function to get current shortcut flags
+function Get-SpotifyShortcutFlags {
+    try {
+        $desktopPath = Get-DesktopPath
+        $shortcutPath = Join-Path $desktopPath "Spotify.lnk"
+        
+        if (-not (Test-Path $shortcutPath)) {
+            return @()
+        }
+        
+        $WshShell = New-Object -comObject WScript.Shell
+        $Shortcut = $WshShell.CreateShortcut($shortcutPath)
+        
+        if ($Shortcut.Arguments) {
+            # Parse the arguments string to get individual flags
+            $arguments = $Shortcut.Arguments.Trim()
+            
+            # Simple parsing - split by spaces but handle quoted values
+            $parts = @()
+            $current = ""
+            $inQuotes = $false
+            
+            for ($i = 0; $i -lt $arguments.Length; $i++) {
+                $char = $arguments[$i]
+                if ($char -eq '"') {
+                    $inQuotes = -not $inQuotes
+                    $current += $char
+                } elseif ($char -eq ' ' -and -not $inQuotes) {
+                    if ($current.Trim()) {
+                        $parts += $current.Trim()
+                        $current = ""
+                    }
+                } else {
+                    $current += $char
+                }
+            }
+            if ($current.Trim()) {
+                $parts += $current.Trim()
+            }
+            
+            return $parts
+        }
+        
+        return @()
+    }
+    catch {
+        Write-Host "Error reading shortcut: $($_.Exception.Message)" -ForegroundColor 'Red'
+        return @()
+    }
+}
+
+# Function to update shortcut flags
+function Update-SpotifyShortcutFlags {
+    param(
+        [string[]]$LaunchFlags = @()
+    )
+    
+    try {
+        $spotifyExe = Get-SpotifyExePath
+        if (-not $spotifyExe) {
+            Write-Host "Spotify executable not found!" -ForegroundColor 'Red'
+            return $false
+        }
+        
+        $desktopPath = Get-DesktopPath
+        $shortcutPath = Join-Path $desktopPath "Spotify.lnk"
+        
+        # If shortcut doesn't exist, create it
+        if (-not (Test-Path $shortcutPath)) {
+            Write-Host "Spotify shortcut not found on desktop. Creating it..." -ForegroundColor 'Yellow'
+            if (-not (New-SpotifyDesktopShortcut -SpotifyExePath $spotifyExe -LaunchFlags $LaunchFlags)) {
+                return $false
+            }
+        } else {
+            # Update existing shortcut
+            $WshShell = New-Object -comObject WScript.Shell
+            $Shortcut = $WshShell.CreateShortcut($shortcutPath)
+            
+            # Set arguments
+            if ($LaunchFlags.Count -gt 0) {
+                $Shortcut.Arguments = ($LaunchFlags -join ' ')
+            } else {
+                $Shortcut.Arguments = ""
+            }
+            
+            $Shortcut.Save()
+        }
+        
+        return $true
+    }
+    catch {
+        Write-Host "Error updating shortcut: $($_.Exception.Message)" -ForegroundColor 'Red'
+        return $false
+    }
+}
+
 function Manage-LaunchFlags {
     while ($true) {
         try {
             Clear-Host
 
-            # Get current flags with better parsing
+            # Check if Spotify shortcut exists on desktop, create if needed
+            $desktopPath = Get-DesktopPath
+            $shortcutPath = Join-Path $desktopPath "Spotify.lnk"
+            
+            if (-not (Test-Path $shortcutPath)) {
+                Write-Host "Spotify shortcut not found on desktop." -ForegroundColor 'Yellow'
+                $spotifyExe = Get-SpotifyExePath
+                if ($spotifyExe) {
+                    Write-Host "Creating Spotify shortcut..." -ForegroundColor 'Cyan'
+                    if (New-SpotifyDesktopShortcut -SpotifyExePath $spotifyExe) {
+                        Write-Host "Spotify shortcut created successfully!" -ForegroundColor 'Green'
+                    } else {
+                        Write-Host "Failed to create Spotify shortcut." -ForegroundColor 'Red'
+                        Press-EnterToContinue
+                        continue
+                    }
+                } else {
+                    Write-Host "Spotify executable not found. Please install Spotify first." -ForegroundColor 'Red'
+                    Press-EnterToContinue
+                    continue
+                }
+            }
+
+            # Get current flags from desktop shortcut
+            $currentFlags = Get-SpotifyShortcutFlags
+            
+            # Also get flags from Spicetify config for reference
             $configOutput = Invoke-SpicetifyWithOutput "config" "spotify_launch_flags"
-            $currentFlagsStr = ""
-            $currentFlags = @()
+            $configFlagsStr = ""
+            $configFlags = @()
 
             if ($configOutput) {
                 # Try different parsing methods
                 if ($configOutput.Contains(' = ')) {
-                    $currentFlagsStr = $configOutput.Split(' = ')[-1].Trim()
+                    $configFlagsStr = $configOutput.Split(' = ')[-1].Trim()
                 } elseif ($configOutput.Contains('=')) {
-                    $currentFlagsStr = $configOutput.Split('=')[-1].Trim()
+                    $configFlagsStr = $configOutput.Split('=')[-1].Trim()
                 } else {
                     # If no equals sign, check if the whole output is the value
                     $lines = $configOutput -split "`n"
                     foreach ($line in $lines) {
                         if ($line.Trim() -and -not $line.StartsWith('spotify_launch_flags')) {
-                            $currentFlagsStr = $line.Trim()
+                            $configFlagsStr = $line.Trim()
                             break
                         }
                     }
                 }
 
-                # Parse flags
-                if ($currentFlagsStr -and $currentFlagsStr -ne "" -and $currentFlagsStr -ne "spotify_launch_flags") {
-                    $currentFlags = $currentFlagsStr.Split('|') | ForEach-Object { $_.Trim() } | Where-Object { $_ -and $_ -ne "" }
+                # Parse config flags
+                if ($configFlagsStr -and $configFlagsStr -ne "" -and $configFlagsStr -ne "spotify_launch_flags") {
+                    $configFlags = $configFlagsStr.Split('|') | ForEach-Object { $_.Trim() } | Where-Object { $_ -and $_ -ne "" }
                 }
             }
 
             Write-Host "--- Spotify Launch Flags Management ---" -ForegroundColor 'Yellow'
-            Write-Host "Current Flags: " -NoNewline
+            Write-Host "Desktop Shortcut Flags: " -NoNewline
             if ($currentFlags.Count -gt 0) {
                 Write-Host ($currentFlags -join ' | ') -ForegroundColor 'Cyan'
             } else {
                 Write-Host "(No flags set)" -ForegroundColor 'Gray'
+            }
+            
+            if ($configFlags.Count -gt 0) {
+                Write-Host "Spicetify Config Flags: " -NoNewline -ForegroundColor 'Gray'
+                Write-Host ($configFlags -join ' | ') -ForegroundColor 'DarkCyan'
             }
             Write-Host "---------------------------------------"
             Write-Host "[1] Add a flag"
@@ -3361,13 +3936,30 @@ function Manage-LaunchFlags {
                 $debugOutput = Invoke-SpicetifyWithOutput "config" "spotify_launch_flags"
                 Write-Host "[$debugOutput]" -ForegroundColor 'White'
                 Write-Host "===================" -ForegroundColor 'Gray'
-                Write-Host "Parsed currentFlagsStr: [$currentFlagsStr]" -ForegroundColor 'Cyan'
-                Write-Host "Parsed currentFlags count: $($currentFlags.Count)" -ForegroundColor 'Cyan'
-                if ($currentFlags.Count -gt 0) {
-                    for ($i = 0; $i -lt $currentFlags.Count; $i++) {
-                        Write-Host "  Flag $($i+1): [$($currentFlags[$i])]" -ForegroundColor 'Cyan'
+                Write-Host "Parsed configFlagsStr: [$configFlagsStr]" -ForegroundColor 'Cyan'
+                Write-Host "Parsed configFlags count: $($configFlags.Count)" -ForegroundColor 'Cyan'
+                if ($configFlags.Count -gt 0) {
+                    for ($i = 0; $i -lt $configFlags.Count; $i++) {
+                        Write-Host "  Config Flag $($i+1): [$($configFlags[$i])]" -ForegroundColor 'Cyan'
                     }
                 }
+                Write-Host "===================" -ForegroundColor 'Gray'
+                Write-Host "Desktop Shortcut Flags:" -ForegroundColor 'Yellow'
+                Write-Host "Shortcut currentFlags count: $($currentFlags.Count)" -ForegroundColor 'Cyan'
+                if ($currentFlags.Count -gt 0) {
+                    for ($i = 0; $i -lt $currentFlags.Count; $i++) {
+                        Write-Host "  Shortcut Flag $($i+1): [$($currentFlags[$i])]" -ForegroundColor 'Cyan'
+                    }
+                } else {
+                    Write-Host "  No flags found in desktop shortcut" -ForegroundColor 'Gray'
+                }
+                
+                $spotifyExe = Get-SpotifyExePath
+                Write-Host "===================" -ForegroundColor 'Gray'
+                Write-Host "Spotify executable path: [$spotifyExe]" -ForegroundColor 'Cyan'
+                $shortcutPath = Join-Path (Get-DesktopPath) "Spotify.lnk"
+                Write-Host "Desktop shortcut path: [$shortcutPath]" -ForegroundColor 'Cyan'
+                Write-Host "Shortcut exists: $(Test-Path $shortcutPath)" -ForegroundColor 'Cyan'
                 Press-EnterToContinue
             }
             elseif ($choice -eq '1') {
@@ -3405,10 +3997,10 @@ function Manage-LaunchFlags {
 
                 $flagChoice = Read-Host -Prompt "Enter number of the flag to add (1-$($availableFlags.Length)) or $backOption to go back"
 
-                if ($flagChoice -eq $backOption) {
+                if ($flagChoice -eq $backOption -or $flagChoice -eq "$backOption") {
                     continue  # Go back to launch flags menu
                 }
-                elseif ($flagChoice -match '^\d+$' -and $flagChoice -gt 0 -and $flagChoice -le $availableFlags.Length) {
+                elseif ($flagChoice -match '^\d+$' -and [int]$flagChoice -gt 0 -and [int]$flagChoice -le $availableFlags.Length) {
                     $selectedFlagObj = $availableFlags[[int]$flagChoice - 1]
                     $newFlag = $selectedFlagObj.Flag
 
@@ -3435,9 +4027,14 @@ function Manage-LaunchFlags {
                         Press-EnterToContinue
                     } else {
                         $currentFlags += $newFlag
+                        # Update both Spicetify config and desktop shortcut
                         $newFlagsStr = $currentFlags -join '|'
                         Invoke-Spicetify "config" "spotify_launch_flags" "$newFlagsStr" | Out-Null
-                        Write-Host "Flag '$newFlag' added successfully!" -ForegroundColor 'Green'
+                        if (Update-SpotifyShortcutFlags -LaunchFlags $currentFlags) {
+                            Write-Host "Flag '$newFlag' added successfully to desktop shortcut!" -ForegroundColor 'Green'
+                        } else {
+                            Write-Host "Flag '$newFlag' added to config but failed to update shortcut." -ForegroundColor 'Yellow'
+                        }
                         Write-Host "Description: $($selectedFlagObj.Description)" -ForegroundColor 'Gray'
                         Start-Sleep -Seconds 2  # Give user time to read the message
                         continue  # Refresh the menu to show the new flag
@@ -3462,10 +4059,10 @@ function Manage-LaunchFlags {
 
                 $flagChoice = Read-Host -Prompt "Enter number of the flag to remove (1-$($currentFlags.Count)) or $backOption to go back"
 
-                if ($flagChoice -eq $backOption) {
+                if ($flagChoice -eq $backOption -or $flagChoice -eq "$backOption") {
                     continue  # Go back to launch flags menu
                 }
-                elseif ($flagChoice -match '^\d+$' -and $flagChoice -gt 0 -and $flagChoice -le $currentFlags.Count) {
+                elseif ($flagChoice -match '^\d+$' -and [int]$flagChoice -gt 0 -and [int]$flagChoice -le $currentFlags.Count) {
                     $removedFlag = $currentFlags[[int]$flagChoice - 1]
                     $updatedFlags = @()
                     for ($j = 0; $j -lt $currentFlags.Count; $j++) {
@@ -3473,9 +4070,14 @@ function Manage-LaunchFlags {
                             $updatedFlags += $currentFlags[$j]
                         }
                     }
+                    # Update both Spicetify config and desktop shortcut
                     $newFlagsStr = $updatedFlags -join '|'
                     Invoke-Spicetify "config" "spotify_launch_flags" "$newFlagsStr" | Out-Null
-                    Write-Host "Flag '$removedFlag' removed successfully!" -ForegroundColor 'Green'
+                    if (Update-SpotifyShortcutFlags -LaunchFlags $updatedFlags) {
+                        Write-Host "Flag '$removedFlag' removed successfully from desktop shortcut!" -ForegroundColor 'Green'
+                    } else {
+                        Write-Host "Flag '$removedFlag' removed from config but failed to update shortcut." -ForegroundColor 'Yellow'
+                    }
                     Start-Sleep -Seconds 2  # Give user time to read the message
                     continue  # Refresh the menu to show updated flags
                 } else {
@@ -3492,8 +4094,13 @@ function Manage-LaunchFlags {
 
                 $confirmation = Read-Host "Are you sure you want to clear ALL launch flags? This will remove $($currentFlags.Count) flag(s). (y/n)"
                 if ($confirmation -eq 'y' -or $confirmation -eq 'Y') {
+                    # Clear both Spicetify config and desktop shortcut
                     Invoke-Spicetify "config" "spotify_launch_flags" "" | Out-Null
-                    Write-Host "All launch flags have been cleared successfully!" -ForegroundColor 'Green'
+                    if (Update-SpotifyShortcutFlags -LaunchFlags @()) {
+                        Write-Host "All launch flags have been cleared successfully from desktop shortcut!" -ForegroundColor 'Green'
+                    } else {
+                        Write-Host "Flags cleared from config but failed to update shortcut." -ForegroundColor 'Yellow'
+                    }
                     Start-Sleep -Seconds 2  # Give user time to read the message
                     continue  # Refresh the menu to show empty flags
                 } else {
@@ -3542,9 +4149,9 @@ while ($true) {
             '7' {
                 while ($true) {
                     Show-SettingsMenu
-                    $settingsChoice = Read-Host -Prompt "Choose an action [1-12]"
+                    $settingsChoice = Read-Host -Prompt "Choose an action [1-15]"
 
-                    if ($settingsChoice -eq '12') { break }
+                    if ($settingsChoice -eq '15') { break }
                     elseif ($settingsChoice -eq '1') {
                         if (Invoke-SafeSpicetifyBackup) {
                             if (Invoke-SafeSpicetifyApply) {
@@ -3566,18 +4173,24 @@ while ($true) {
                         Press-EnterToContinue
                     }
                     elseif ($settingsChoice -eq '3') {
-                        Write-Host "Refreshing theme and extensions..." -ForegroundColor 'Cyan'
-                        Invoke-Spicetify "refresh" "-e"
-                        Write-Host "Refresh completed!" -ForegroundColor 'Green'
-                        Press-EnterToContinue
+                        try {
+                            Manage-RefreshWatch
+                        } catch {
+                            Write-Error-Message $_.Exception.Message
+                            Press-EnterToContinue
+                        }
                     }
                     elseif ($settingsChoice -eq '4') {
+                        Clear-SpicetifyBackup
+                        Press-EnterToContinue
+                    }
+                    elseif ($settingsChoice -eq '5') {
                         Write-Host "Enabling developer tools..." -ForegroundColor 'Cyan'
                         Invoke-Spicetify "enable-devtools"
                         Write-Host "Developer tools enabled! Press Ctrl + Shift + I in Spotify to use." -ForegroundColor 'Green'
                         Press-EnterToContinue
                     }
-                    elseif ($settingsChoice -eq '5') {
+                    elseif ($settingsChoice -eq '6') {
                         $action = Read-Host "Do you want to 'block' or 'unblock' Spotify updates?"
                         if ($action -in @('block', 'unblock')) {
                             Write-Host "Executing spotify-updates $action..." -ForegroundColor 'Cyan'
@@ -3589,7 +4202,7 @@ while ($true) {
                             Press-EnterToContinue
                         }
                     }
-                    elseif ($settingsChoice -eq '6') {
+                    elseif ($settingsChoice -eq '7') {
                         try {
                             Manage-Extensions
                         } catch {
@@ -3597,7 +4210,7 @@ while ($true) {
                             Press-EnterToContinue
                         }
                     }
-                    elseif ($settingsChoice -eq '7') {
+                    elseif ($settingsChoice -eq '8') {
                         try {
                             Manage-CustomApps
                         } catch {
@@ -3605,17 +4218,9 @@ while ($true) {
                             Press-EnterToContinue
                         }
                     }
-                    elseif ($settingsChoice -eq '8') {
-                        try {
-                            Manage-Toggles
-                        } catch {
-                            Write-Error-Message $_.Exception.Message
-                            Press-EnterToContinue
-                        }
-                    }
                     elseif ($settingsChoice -eq '9') {
                         try {
-                            Manage-TextSettings
+                            Manage-Colors
                         } catch {
                             Write-Error-Message $_.Exception.Message
                             Press-EnterToContinue
@@ -3623,13 +4228,37 @@ while ($true) {
                     }
                     elseif ($settingsChoice -eq '10') {
                         try {
-                            Manage-LaunchFlags
+                            Manage-Toggles
                         } catch {
                             Write-Error-Message $_.Exception.Message
                             Press-EnterToContinue
                         }
                     }
                     elseif ($settingsChoice -eq '11') {
+                        try {
+                            Manage-TextSettings
+                        } catch {
+                            Write-Error-Message $_.Exception.Message
+                            Press-EnterToContinue
+                        }
+                    }
+                    elseif ($settingsChoice -eq '12') {
+                        try {
+                            Manage-LaunchFlags
+                        } catch {
+                            Write-Error-Message $_.Exception.Message
+                            Press-EnterToContinue
+                        }
+                    }
+                    elseif ($settingsChoice -eq '13') {
+                        try {
+                            Manage-PathDirectory
+                        } catch {
+                            Write-Error-Message $_.Exception.Message
+                            Press-EnterToContinue
+                        }
+                    }
+                    elseif ($settingsChoice -eq '14') {
                         Write-Host "--- Raw 'spicetify config' output ---" -ForegroundColor 'Yellow'
                         $rawConfig = Invoke-SpicetifyWithOutput "config"
                         Write-Host "====================================="
@@ -3639,7 +4268,7 @@ while ($true) {
                         Press-EnterToContinue
                     }
                     else {
-                        Write-Warning "Invalid choice. Please enter a number between 1-12."
+                        Write-Warning "Invalid choice. Please enter a number between 1-15."
                         Press-EnterToContinue
                     }
                 }
