@@ -391,10 +391,11 @@ function Get-Spicetify {
     $latestRelease = $null
     $apiUrl = 'https://api.github.com/repos/spicetify/cli/releases/latest'
     $useToken = $false
+    $uaHeaders = @{ "User-Agent" = "Spicetify-Plus/1.0" }
 
     # Check if GitHub token is provided and not empty
     if (-not [string]::IsNullOrWhiteSpace($Global:githubToken)) {
-        $headers = @{ "Authorization" = "Bearer $Global:githubToken" }
+        $headers = @{ "Authorization" = "Bearer $Global:githubToken"; "User-Agent" = "Spicetify-Plus/1.0" }
         try {
             $latestRelease = Invoke-RestMethod -Uri $apiUrl -Headers $headers -ErrorAction Stop
             $useToken = $true
@@ -409,7 +410,7 @@ function Get-Spicetify {
 
                 # Try without token
                 try {
-                    $latestRelease = Invoke-RestMethod -Uri $apiUrl -ErrorAction Stop
+                    $latestRelease = Invoke-RestMethod -Uri $apiUrl -Headers $uaHeaders -ErrorAction Stop
                     Write-Host "Successfully fetched version without authentication." -ForegroundColor 'Green'
                 }
                 catch {
@@ -453,7 +454,7 @@ function Get-Spicetify {
     else {
         # No token provided
         try {
-            $latestRelease = Invoke-RestMethod -Uri $apiUrl -ErrorAction Stop
+            $latestRelease = Invoke-RestMethod -Uri $apiUrl -Headers $uaHeaders -ErrorAction Stop
             Write-Host " (no GitHub API token - may encounter rate limits)" -ForegroundColor 'Yellow'
         }
         catch {
@@ -472,9 +473,7 @@ function Get-Spicetify {
     }
 
     $targetVersion = $latestRelease.tag_name -replace 'v', ''
-    if (-not $useToken) {
-        Write-Success
-    }
+    Write-Success
 
     $archivePath = [System.IO.Path]::Combine([System.IO.Path]::GetTempPath(), "spicetify.zip")
 
@@ -482,11 +481,11 @@ function Get-Spicetify {
     Write-Host "Downloading spicetify v$targetVersion..." -NoNewline
     try {
         if ($useToken) {
-            $downloadHeaders = @{ "Authorization" = "Bearer $Global:githubToken" }
+            $downloadHeaders = @{ "Authorization" = "Bearer $Global:githubToken"; "User-Agent" = "Spicetify-Plus/1.0" }
             Invoke-WebRequest -Uri "https://github.com/spicetify/cli/releases/download/v$targetVersion/spicetify-$targetVersion-windows-$architecture.zip" -UseBasicParsing -OutFile $archivePath -Headers $downloadHeaders -ErrorAction Stop
         }
         else {
-            Invoke-WebRequest -Uri "https://github.com/spicetify/cli/releases/download/v$targetVersion/spicetify-$targetVersion-windows-$architecture.zip" -UseBasicParsing -OutFile $archivePath -ErrorAction Stop
+            Invoke-WebRequest -Uri "https://github.com/spicetify/cli/releases/download/v$targetVersion/spicetify-$targetVersion-windows-$architecture.zip" -UseBasicParsing -OutFile $archivePath -Headers $uaHeaders -ErrorAction Stop
         }
         Write-Success
     }
@@ -494,7 +493,7 @@ function Get-Spicetify {
         # If download with token fails, try without token
         if ($useToken) {
             Write-Host " (retrying without token)" -ForegroundColor 'Yellow'
-            Invoke-WebRequest -Uri "https://github.com/spicetify/cli/releases/download/v$targetVersion/spicetify-$targetVersion-windows-$architecture.zip" -UseBasicParsing -OutFile $archivePath -ErrorAction Stop
+            Invoke-WebRequest -Uri "https://github.com/spicetify/cli/releases/download/v$targetVersion/spicetify-$targetVersion-windows-$architecture.zip" -UseBasicParsing -OutFile $archivePath -Headers $uaHeaders -ErrorAction Stop
             Write-Success
         }
         else {
@@ -572,14 +571,37 @@ function Update-Spicetify {
 
         Write-Host "Checking for Spicetify updates..." -ForegroundColor 'Cyan'
 
-        # Get current version
-        $currentVersionOutput = Invoke-SpicetifyWithOutput "version"
+        # Get current version (robust across CLI versions)
         $currentVersion = ""
-        if ($currentVersionOutput -match "spicetify version (\d+\.\d+\.\d+)") {
-            $currentVersion = $matches[1]
+        $versionOutputs = @()
+        $tryArgsList = @(
+            @("--version"),
+            @("-v"),
+            @("version")
+        )
+        foreach ($tryArgs in $tryArgsList) {
+            try {
+                $out = Invoke-SpicetifyWithOutput $tryArgs
+                if (-not [string]::IsNullOrWhiteSpace($out)) {
+                    $versionOutputs += $out
+                    # Match formats like: "2.42.0", "v2.42.0", "spicetify v2.42.0", "spicetify version 2.42.0"
+                    if ($out -match '(?i)\b(?:spicetify\s*)?(?:version\s*[: ]*)?v?(\d+\.\d+\.\d+)\b') {
+                        $currentVersion = $matches[1]
+                        break
+                    }
+                }
+            } catch {
+                # Ignore and try next form
+            }
+        }
+        if (-not [string]::IsNullOrWhiteSpace($currentVersion)) {
             Write-Host "Current Spicetify version: v$currentVersion" -ForegroundColor 'Gray'
         } else {
             Write-Host "Could not determine current Spicetify version." -ForegroundColor 'Yellow'
+            if ($versionOutputs.Count -gt 0) {
+                Write-Host "Raw version output:" -ForegroundColor 'DarkGray'
+                $versionOutputs | ForEach-Object { Write-Host "  $_" -ForegroundColor 'DarkGray' }
+            }
         }
 
         # Get latest version from GitHub
@@ -603,7 +625,17 @@ function Update-Spicetify {
         }
 
         # Compare versions
-        if ($currentVersion -eq $latestVersion) {
+        $upToDate = $false
+        try {
+            $cv = [version]$currentVersion
+            $lv = [version]$latestVersion
+            if ($cv -eq $lv) { $upToDate = $true }
+        } catch {
+            if (-not [string]::IsNullOrWhiteSpace($currentVersion) -and $currentVersion -eq $latestVersion) {
+                $upToDate = $true
+            }
+        }
+        if ($upToDate) {
             Write-Host "Spicetify is already up to date! (v$currentVersion)" -ForegroundColor 'Green'
             return
         }
@@ -611,7 +643,15 @@ function Update-Spicetify {
         if ([string]::IsNullOrWhiteSpace($currentVersion)) {
             Write-Host "Unable to compare versions. Proceeding with update..." -ForegroundColor 'Yellow'
         } else {
-            Write-Host "Update available: v$currentVersion -> v$latestVersion" -ForegroundColor 'Cyan'
+            try {
+                if ([version]$currentVersion -gt [version]$latestVersion) {
+                    Write-Host "Installed version (v$currentVersion) is newer than GitHub latest (v$latestVersion). Proceeding with update anyway per request." -ForegroundColor 'Yellow'
+                } else {
+                    Write-Host "Update available: v$currentVersion -> v$latestVersion" -ForegroundColor 'Cyan'
+                }
+            } catch {
+                Write-Host "Update available: v$currentVersion -> v$latestVersion" -ForegroundColor 'Cyan'
+            }
         }
 
         # Perform update
