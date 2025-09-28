@@ -425,7 +425,7 @@ function Get-Spicetify {
 
                 # Try without token
                 try {
-                    $latestRelease = Invoke-RestMethod -Uri $apiUrl -ErrorAction Stop
+                    $latestRelease = Invoke-RestMethod -Uri $apiUrl -Headers $uaHeaders -ErrorAction Stop
                     Write-Host "Successfully fetched version without authentication." -ForegroundColor 'Green'
                 }
                 catch {
@@ -440,7 +440,7 @@ function Get-Spicetify {
 
                 # Try without token
                 try {
-                    $latestRelease = Invoke-RestMethod -Uri $apiUrl -ErrorAction Stop
+                    $latestRelease = Invoke-RestMethod -Uri $apiUrl -Headers $uaHeaders -ErrorAction Stop
                     Write-Host "Successfully fetched version without authentication." -ForegroundColor 'Green'
                 }
                 catch {
@@ -607,22 +607,36 @@ function Update-Spicetify {
         # Get latest version from GitHub
         Write-Host "Fetching latest Spicetify version..." -NoNewline
         $latestVersion = ""
+        $apiUrl = 'https://api.github.com/repos/spicetify/cli/releases/latest'
+        $uaHeaders = @{ "User-Agent" = "Spicetify-Plus/1.0" }
+        $latestRelease = $null
         try {
             if (-not [string]::IsNullOrWhiteSpace($Global:githubToken)) {
-                $headers = @{ "Authorization" = "Bearer $Global:githubToken" }
-                $latestRelease = Invoke-RestMethod -Uri 'https://api.github.com/repos/spicetify/cli/releases/latest' -Headers $headers -ErrorAction Stop
+                $headers = @{ "Authorization" = "Bearer $Global:githubToken"; "User-Agent" = "Spicetify-Plus/1.0" }
+                $latestRelease = Invoke-RestMethod -Uri $apiUrl -Headers $headers -ErrorAction Stop
             } else {
-                $latestRelease = Invoke-RestMethod -Uri 'https://api.github.com/repos/spicetify/cli/releases/latest' -ErrorAction Stop
+                $latestRelease = Invoke-RestMethod -Uri $apiUrl -Headers $uaHeaders -ErrorAction Stop
             }
-            $latestVersion = $latestRelease.tag_name -replace 'v', ''
-            Write-Success
-            Write-Host "Latest Spicetify version: v$latestVersion" -ForegroundColor 'Gray'
         }
         catch {
-            Write-Host " > FAILED" -ForegroundColor 'Red'
-            Write-Warning "Could not fetch latest version from GitHub. Error: $($_.Exception.Message)"
-            return
+            $errorMessage = $_.Exception.Message
+            if ($errorMessage -like "*403*" -or $errorMessage -like "*rate limit*") {
+                try {
+                    $latestRelease = Invoke-RestMethod -Uri $apiUrl -Headers $uaHeaders -ErrorAction Stop
+                } catch {
+                    Write-Host " > FAILED" -ForegroundColor 'Red'
+                    Write-Warning "Could not fetch latest version from GitHub. Error: $($_.Exception.Message)"
+                    return
+                }
+            } else {
+                Write-Host " > FAILED" -ForegroundColor 'Red'
+                Write-Warning "Could not fetch latest version from GitHub. Error: $errorMessage"
+                return
+            }
         }
+        $latestVersion = $latestRelease.tag_name -replace 'v', ''
+        Write-Success
+        Write-Host "Latest Spicetify version: v$latestVersion" -ForegroundColor 'Gray'
 
         # Compare versions
         $upToDate = $false
