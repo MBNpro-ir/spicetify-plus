@@ -1155,32 +1155,52 @@ function Show-SettingsMenu {
     Write-Host "+==============================================================+" -ForegroundColor 'Magenta'
     Write-Host "|   Core Actions:                                              |" -ForegroundColor 'Gray'
     Write-Host "|     [1] Backup & Apply Changes                               |" -ForegroundColor 'White'
-    Write-Host "|     [2] Restore Spotify to Original                          |" -ForegroundColor 'White'
-    Write-Host "|     [3] Advanced Refresh & Watch Operations                  |" -ForegroundColor 'White'
-    Write-Host "|     [4] Clear Backup Files                                   |" -ForegroundColor 'White'
-    Write-Host "|     [5] Enable/Disable Spotify Developer Tools               |" -ForegroundColor 'White'
-    Write-Host "|     [6] Block/Unblock Spotify Updates                        |" -ForegroundColor 'White'
+    Write-Host "|     [2] Auto Check & Apply (Smart Update)                    |" -ForegroundColor 'Green'
+    Write-Host "|     [3] Restore Spotify to Original                          |" -ForegroundColor 'White'
+    Write-Host "|     [4] Advanced Refresh & Watch Operations                  |" -ForegroundColor 'White'
+    Write-Host "|     [5] Clear Backup Files                                   |" -ForegroundColor 'White'
+    Write-Host "|     [6] Enable/Disable Spotify Developer Tools               |" -ForegroundColor 'White'
+    Write-Host "|     [7] Block/Unblock Spotify Updates                        |" -ForegroundColor 'White'
     Write-Host "|                                                              |" -ForegroundColor 'Magenta'
     Write-Host "|   Extensions & Apps:                                         |" -ForegroundColor 'Gray'
-    Write-Host "|     [7] Manage Extensions                                    |" -ForegroundColor 'White'
-    Write-Host "|     [8] Manage Custom Apps                                   |" -ForegroundColor 'White'
+    Write-Host "|     [8] Manage Extensions                                    |" -ForegroundColor 'White'
+    Write-Host "|     [9] Manage Custom Apps                                   |" -ForegroundColor 'White'
     Write-Host "|                                                              |" -ForegroundColor 'Magenta'
     Write-Host "|   Theme & Colors:                                            |" -ForegroundColor 'Gray'
-    Write-Host "|     [9] Manage Theme Colors                                  |" -ForegroundColor 'White'
+    Write-Host "|    [10] Manage Theme Colors                                  |" -ForegroundColor 'White'
     Write-Host "|                                                              |" -ForegroundColor 'Magenta'
     Write-Host "|   Configuration:                                             |" -ForegroundColor 'Gray'
-    Write-Host "|    [10] Manage Toggles (CSS, Sentry, etc.)                   |" -ForegroundColor 'White'
-    Write-Host "|    [11] Manage Text/Path Settings (Theme, etc.)              |" -ForegroundColor 'White'
-    Write-Host "|    [12] Manage Spotify Launch Flags                          |" -ForegroundColor 'White'
+    Write-Host "|    [11] Manage Toggles (CSS, Sentry, etc.)                   |" -ForegroundColor 'White'
+    Write-Host "|    [12] Manage Text/Path Settings (Theme, etc.)              |" -ForegroundColor 'White'
+    Write-Host "|    [13] Manage Spotify Launch Flags                          |" -ForegroundColor 'White'
     Write-Host "|                                                              |" -ForegroundColor 'Magenta'
     Write-Host "|   Path & Directory:                                          |" -ForegroundColor 'Gray'
-    Write-Host "|    [13] Path & Directory Management                          |" -ForegroundColor 'White'
+    Write-Host "|    [14] Path & Directory Management                          |" -ForegroundColor 'White'
     Write-Host "|                                                              |" -ForegroundColor 'Magenta'
     Write-Host "|   Debug:                                                     |" -ForegroundColor 'Gray'
-    Write-Host "|    [14] Show Raw Spicetify Config Output                     |" -ForegroundColor 'Yellow'
+    Write-Host "|    [15] Show Raw Spicetify Config Output                     |" -ForegroundColor 'Yellow'
     Write-Host "|                                                              |" -ForegroundColor 'Magenta'
-    Write-Host "|    [15] Back to Main Menu                                    |" -ForegroundColor 'White'
+    Write-Host "|    [16] Back to Main Menu                                    |" -ForegroundColor 'White'
     Write-Host "+==============================================================+" -ForegroundColor 'Magenta'
+}
+
+function Invoke-SpicetifyAuto {
+    try {
+        Write-Host "Running Spicetify auto-check..." -ForegroundColor 'Cyan'
+        Write-Host "This will automatically check if backup is needed and apply changes." -ForegroundColor 'Gray'
+        
+        $result = Invoke-Spicetify "auto"
+        
+        if ($result -eq 0) {
+            Write-Host "Auto operation completed successfully!" -ForegroundColor 'Green'
+            Write-Host "Spotify has been checked and updated if needed." -ForegroundColor 'Cyan'
+        } else {
+            Write-Host "Auto operation completed. Check output above for details." -ForegroundColor 'Yellow'
+        }
+    }
+    catch {
+        Write-Error-Message $_.Exception.Message
+    }
 }
 
 function Clear-SpicetifyBackup {
@@ -1484,7 +1504,7 @@ function Manage-Toggles {
             Clear-Host
             Write-Host "--- Configuration Toggles (0 = Disabled, 1 = Enabled) ---" -ForegroundColor 'Yellow'
             $currentConfig = Invoke-SpicetifyWithOutput "config"
-            $toggles = @("inject_css", "inject_theme_js", "replace_colors", "always_enable_devtools", "check_spicetify_update", "disable_sentry", "disable_ui_logging", "remove_rtl_rule", "expose_apis", "experimental_features", "home_config", "sidebar_config")
+            $toggles = @("inject_css", "inject_theme_js", "replace_colors", "overwrite_assets", "always_enable_devtools", "check_spicetify_update", "disable_sentry", "disable_ui_logging", "remove_rtl_rule", "expose_apis", "experimental_features", "home_config", "sidebar_config")
 
             $i = 1
             foreach ($toggle in $toggles) {
@@ -1927,17 +1947,18 @@ function Manage-Extensions {
                 continue
             }
             elseif ($choice -eq '1') {
+                # Official Spicetify CLI extensions (from cli/Extensions/ folder and manifest.json)
                 $availableExtensions = @(
-                    @{ Name = "autoSkipVideo.js"; Description = "Auto skip videos that can't play in your region"; Category = "Main" },
-                    @{ Name = "bookmark.js"; Description = "Store and browse pages, play tracks or tracks in specific time"; Category = "Main" },
-                    @{ Name = "autoSkipExplicit.js"; Description = "Auto skip explicit tracks (Christian Spotify)"; Category = "Main" },
-                    @{ Name = "fullAppDisplay.js"; Description = "Minimal album cover art display with blur effect"; Category = "Main" },
-                    @{ Name = "keyboardShortcut.js"; Description = "Vim-like keyboard shortcuts for navigation"; Category = "Main" },
-                    @{ Name = "loopyLoop.js"; Description = "Mark start/end points and loop track portions"; Category = "Main" },
-                    @{ Name = "popupLyrics.js"; Description = "Pop-up window with current song's lyrics"; Category = "Main" },
-                    @{ Name = "shuffle+.js"; Description = "Better shuffle using Fisher-Yates algorithm"; Category = "Main" },
-                    @{ Name = "trashbin.js"; Description = "Throw songs/artists to trash and auto-skip them"; Category = "Main" },
-                    @{ Name = "webnowplaying.js"; Description = "For Rainmeter users - WebNowPlaying plugin support"; Category = "Main" },
+                    @{ Name = "autoSkipVideo.js"; Description = "Auto skip videos that can't play in your region"; Category = "Official" },
+                    @{ Name = "bookmark.js"; Description = "Store and browse pages, play tracks or tracks in specific time"; Category = "Official" },
+                    @{ Name = "autoSkipExplicit.js"; Description = "Auto skip explicit tracks (Christian Spotify)"; Category = "Official" },
+                    @{ Name = "keyboardShortcut.js"; Description = "Vim-like keyboard shortcuts for navigation"; Category = "Official" },
+                    @{ Name = "loopyLoop.js"; Description = "Mark start/end points and loop track portions"; Category = "Official" },
+                    @{ Name = "shuffle+.js"; Description = "Better shuffle using Fisher-Yates algorithm"; Category = "Official" },
+                    @{ Name = "trashbin.js"; Description = "Throw songs/artists to trash and auto-skip them"; Category = "Official" },
+                    @{ Name = "fullAppDisplay.js"; Description = "Minimal album cover art display with blur effect"; Category = "Official" },
+                    @{ Name = "popupLyrics.js"; Description = "Pop-up window with current song's lyrics"; Category = "Official" },
+                    @{ Name = "webnowplaying.js"; Description = "For Rainmeter users - WebNowPlaying plugin support"; Category = "Official" },
                     @{ Name = "auto-skip-tracks-by-duration.js"; Description = "Auto skip tracks based on their duration (useful for SFX)"; Category = "Community" },
                     @{ Name = "djMode.js"; Description = "DJ Mode - Setup client for audiences to queue songs without player control"; Category = "Legacy" },
                     @{ Name = "newRelease.js"; Description = "Aggregate new releases from favorite artists and podcasts"; Category = "Legacy" },
@@ -4203,9 +4224,9 @@ while ($true) {
             '7' {
                 while ($true) {
                     Show-SettingsMenu
-                    $settingsChoice = Read-Host -Prompt "Choose an action [1-15]"
+                    $settingsChoice = Read-Host -Prompt "Choose an action [1-16]"
 
-                    if ($settingsChoice -eq '15') { break }
+                    if ($settingsChoice -eq '16') { break }
                     elseif ($settingsChoice -eq '1') {
                         if (Invoke-SafeSpicetifyBackup) {
                             if (Invoke-SafeSpicetifyApply) {
@@ -4221,12 +4242,16 @@ while ($true) {
                         Press-EnterToContinue
                     }
                     elseif ($settingsChoice -eq '2') {
+                        Invoke-SpicetifyAuto
+                        Press-EnterToContinue
+                    }
+                    elseif ($settingsChoice -eq '3') {
                         Write-Host "Restoring Spotify to original state..." -ForegroundColor 'Cyan'
                         Invoke-Spicetify "restore"
                         Write-Host "Restore completed!" -ForegroundColor 'Green'
                         Press-EnterToContinue
                     }
-                    elseif ($settingsChoice -eq '3') {
+                    elseif ($settingsChoice -eq '4') {
                         try {
                             Manage-RefreshWatch
                         } catch {
@@ -4234,17 +4259,17 @@ while ($true) {
                             Press-EnterToContinue
                         }
                     }
-                    elseif ($settingsChoice -eq '4') {
+                    elseif ($settingsChoice -eq '5') {
                         Clear-SpicetifyBackup
                         Press-EnterToContinue
                     }
-                    elseif ($settingsChoice -eq '5') {
+                    elseif ($settingsChoice -eq '6') {
                         Write-Host "Enabling developer tools..." -ForegroundColor 'Cyan'
                         Invoke-Spicetify "enable-devtools"
                         Write-Host "Developer tools enabled! Press Ctrl + Shift + I in Spotify to use." -ForegroundColor 'Green'
                         Press-EnterToContinue
                     }
-                    elseif ($settingsChoice -eq '6') {
+                    elseif ($settingsChoice -eq '7') {
                         $action = Read-Host "Do you want to 'block' or 'unblock' Spotify updates?"
                         if ($action -in @('block', 'unblock')) {
                             Write-Host "Executing spotify-updates $action..." -ForegroundColor 'Cyan'
@@ -4256,7 +4281,7 @@ while ($true) {
                             Press-EnterToContinue
                         }
                     }
-                    elseif ($settingsChoice -eq '7') {
+                    elseif ($settingsChoice -eq '8') {
                         try {
                             Manage-Extensions
                         } catch {
@@ -4264,7 +4289,7 @@ while ($true) {
                             Press-EnterToContinue
                         }
                     }
-                    elseif ($settingsChoice -eq '8') {
+                    elseif ($settingsChoice -eq '9') {
                         try {
                             Manage-CustomApps
                         } catch {
@@ -4272,7 +4297,7 @@ while ($true) {
                             Press-EnterToContinue
                         }
                     }
-                    elseif ($settingsChoice -eq '9') {
+                    elseif ($settingsChoice -eq '10') {
                         try {
                             Manage-Colors
                         } catch {
@@ -4280,7 +4305,7 @@ while ($true) {
                             Press-EnterToContinue
                         }
                     }
-                    elseif ($settingsChoice -eq '10') {
+                    elseif ($settingsChoice -eq '11') {
                         try {
                             Manage-Toggles
                         } catch {
@@ -4288,7 +4313,7 @@ while ($true) {
                             Press-EnterToContinue
                         }
                     }
-                    elseif ($settingsChoice -eq '11') {
+                    elseif ($settingsChoice -eq '12') {
                         try {
                             Manage-TextSettings
                         } catch {
@@ -4296,7 +4321,7 @@ while ($true) {
                             Press-EnterToContinue
                         }
                     }
-                    elseif ($settingsChoice -eq '12') {
+                    elseif ($settingsChoice -eq '13') {
                         try {
                             Manage-LaunchFlags
                         } catch {
@@ -4304,7 +4329,7 @@ while ($true) {
                             Press-EnterToContinue
                         }
                     }
-                    elseif ($settingsChoice -eq '13') {
+                    elseif ($settingsChoice -eq '14') {
                         try {
                             Manage-PathDirectory
                         } catch {
@@ -4312,7 +4337,7 @@ while ($true) {
                             Press-EnterToContinue
                         }
                     }
-                    elseif ($settingsChoice -eq '14') {
+                    elseif ($settingsChoice -eq '15') {
                         Write-Host "--- Raw 'spicetify config' output ---" -ForegroundColor 'Yellow'
                         $rawConfig = Invoke-SpicetifyWithOutput "config"
                         Write-Host "====================================="
@@ -4322,7 +4347,7 @@ while ($true) {
                         Press-EnterToContinue
                     }
                     else {
-                        Write-Warning "Invalid choice. Please enter a number between 1-15."
+                        Write-Warning "Invalid choice. Please enter a number between 1-16."
                         Press-EnterToContinue
                     }
                 }
