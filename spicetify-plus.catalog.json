@@ -1,0 +1,262 @@
+{
+  "schemaVersion": 1,
+  "snapshotDate": "2026-07-01",
+  "application": {
+    "name": "Spicetify Plus",
+    "version": "2.0.0",
+    "userAgent": "Spicetify-Plus/2.0.0"
+  },
+  "official": {
+    "organization": "spicetify",
+    "repos": [
+      "spicetify/cli",
+      "spicetify/spicetify-themes",
+      "spicetify/winget-pkgs",
+      "spicetify/docs",
+      "spicetify/marketplace",
+      "spicetify/spicetify-creator",
+      "spicetify/cors-proxy",
+      "spicetify/homebrew-tap",
+      "spicetify/.github",
+      "spicetify/spicetify-extensions",
+      "spicetify/npm-packages",
+      "spicetify/xpui-archive",
+      "spicetify/pkgs",
+      "spicetify/modules",
+      "spicetify/classmaps",
+      "spicetify/hooks",
+      "spicetify/spicetify-lyrics-romaji"
+    ],
+    "cli": {
+      "repo": "spicetify/cli",
+      "latestReleaseUrl": "https://api.github.com/repos/spicetify/cli/releases/latest",
+      "installScriptUrl": "https://raw.githubusercontent.com/spicetify/cli/main/install.ps1",
+      "extensionsPath": "Extensions",
+      "customAppsPath": "CustomApps"
+    },
+    "marketplace": {
+      "repo": "spicetify/marketplace",
+      "latestReleaseUrl": "https://api.github.com/repos/spicetify/marketplace/releases/latest",
+      "installScriptUrl": "https://raw.githubusercontent.com/spicetify/marketplace/main/resources/install.ps1",
+      "placeholderColorUrl": "https://raw.githubusercontent.com/spicetify/marketplace/main/resources/color.ini",
+      "assetRegex": "^marketplace\\.zip$"
+    },
+    "themes": {
+      "repo": "spicetify/spicetify-themes",
+      "branch": "master"
+    },
+    "builtInCustomApps": [
+      {
+        "name": "lyrics-plus",
+        "description": "Lyrics from multiple providers."
+      },
+      {
+        "name": "new-releases",
+        "description": "New releases from followed artists and podcasts."
+      },
+      {
+        "name": "reddit",
+        "description": "Browse music shared on Spotify-related subreddits."
+      }
+    ]
+  },
+  "communityApps": [
+    {
+      "name": "spicetify-history",
+      "displayName": "Spicetify History",
+      "description": "Listening history with export support.",
+      "repo": "bc9123/spicetify-history",
+      "installName": "spicetify-history",
+      "status": "active",
+      "resolver": {
+        "type": "latestReleaseAsset",
+        "assetRegex": "^spicetify-history.*\\.zip$"
+      }
+    },
+    {
+      "name": "wmpvis",
+      "displayName": "WMPotify NowPlaying",
+      "description": "WMP-like visualization screen with lyrics overlay.",
+      "repo": "Ingan121/WMPotify",
+      "installName": "wmpvis",
+      "status": "active",
+      "resolver": {
+        "type": "repositoryPath",
+        "ref": "master",
+        "path": "CustomApps/wmpvis/dist"
+      }
+    },
+    {
+      "name": "enhancify",
+      "displayName": "Enhancify",
+      "description": "Enhanced Spotify experience with extra features.",
+      "repo": "ECE49595-Team-6/EnhancifyInstall",
+      "installName": "enhancify",
+      "status": "active",
+      "resolver": {
+        "type": "latestReleaseAsset",
+        "assetRegex": "^EnhancifyInstall.*\\.zip$"
+      }
+    },
+    {
+      "name": "lyrixed",
+      "displayName": "Lyrixed",
+      "description": "Lyrics feature for freemium users.",
+      "repo": "Nuzair46/Lyrixed",
+      "installName": "lyrixed",
+      "status": "active",
+      "resolver": {
+        "type": "latestReleaseAsset",
+        "assetRegex": "^lyrixed\\.zip$"
+      }
+    },
+    {
+      "name": "history-in-sidebar",
+      "displayName": "History in Sidebar",
+      "description": "Recently played shortcut in the sidebar.",
+      "repo": "Bergbok/Spicetify-Creations",
+      "installName": "history-in-sidebar",
+      "status": "active",
+      "resolver": {
+        "type": "branchArchive",
+        "branch": "dist/history-in-sidebar"
+      }
+    },
+    {
+      "name": "playlist-tags",
+      "displayName": "Playlist Tags",
+      "description": "Organize playlists with tags.",
+      "repo": "Bergbok/Spicetify-Creations",
+      "installName": "playlist-tags",
+      "status": "active",
+      "resolver": {
+        "type": "branchArchive",
+        "branch": "dist/playlist-tags"
+      }
+    },
+    {
+      "name": "betterLibrary",
+      "displayName": "Better Library",
+      "description": "Archived enhanced library app. Kept only for existing users.",
+      "repo": "Sowgro/betterLibrary",
+      "installName": "betterLibrary",
+      "status": "deprecated",
+      "resolver": {
+        "type": "repositoryPath",
+        "ref": "main",
+        "path": "CustomApps/betterLibrary"
+      }
+    },
+    {
+      "name": "visualizer",
+      "displayName": "Spicetify Visualizer",
+      "description": "Audio visualizer with customizable effects.",
+      "repo": "Konsl/spicetify-visualizer",
+      "installName": "visualizer",
+      "status": "active",
+      "resolver": {
+        "type": "branchArchive",
+        "branch": "dist"
+      }
+    },
+    {
+      "name": "stats",
+      "displayName": "Spicetify Stats",
+      "description": "Detailed listening statistics.",
+      "repo": "harbassan/spicetify-apps",
+      "installName": "stats",
+      "status": "active",
+      "resolver": {
+        "type": "taggedReleaseAsset",
+        "tagRegex": "^stats-v",
+        "assetRegex": "^spicetify-stats\\.release\\.zip$"
+      }
+    },
+    {
+      "name": "library",
+      "displayName": "Spicetify Library",
+      "description": "Enhanced library management.",
+      "repo": "harbassan/spicetify-apps",
+      "installName": "library",
+      "status": "active",
+      "resolver": {
+        "type": "taggedReleaseAsset",
+        "tagRegex": "^library-v",
+        "assetRegex": "^spicetify-library\\.release\\.zip$"
+      }
+    },
+    {
+      "name": "eternal-jukebox",
+      "displayName": "Eternal Jukebox",
+      "description": "Create infinite loops of favorite songs.",
+      "repo": "Pithaya/spicetify-apps-dist",
+      "installName": "eternal-jukebox",
+      "status": "active",
+      "resolver": {
+        "type": "branchArchive",
+        "branch": "dist/eternal-jukebox"
+      }
+    },
+    {
+      "name": "better-local-files",
+      "displayName": "Better Local Files",
+      "description": "Improved local file playback and management.",
+      "repo": "Pithaya/spicetify-apps-dist",
+      "installName": "better-local-files",
+      "status": "active",
+      "resolver": {
+        "type": "branchArchive",
+        "branch": "dist/better-local-files"
+      }
+    },
+    {
+      "name": "playlist-maker",
+      "displayName": "Playlist Maker",
+      "description": "Advanced playlist creation tools.",
+      "repo": "Pithaya/spicetify-apps-dist",
+      "installName": "playlist-maker",
+      "status": "active",
+      "resolver": {
+        "type": "branchArchive",
+        "branch": "dist/playlist-maker"
+      }
+    },
+    {
+      "name": "name-that-tune",
+      "displayName": "Name That Tune",
+      "description": "Music guessing game for Spotify.",
+      "repo": "theRealPadster/name-that-tune",
+      "installName": "name-that-tune",
+      "status": "active",
+      "resolver": {
+        "type": "latestReleaseAsset",
+        "assetRegex": "^name-that-tune-dist\\.zip$"
+      }
+    },
+    {
+      "name": "combined-playlists",
+      "displayName": "Combined Playlists",
+      "description": "Combine playlists with sync support.",
+      "repo": "jeroentvb/spicetify-combined-playlists",
+      "installName": "combined-playlists",
+      "status": "active",
+      "resolver": {
+        "type": "branchArchive",
+        "branch": "dist",
+        "path": "combined-playlists"
+      }
+    },
+    {
+      "name": "beatsaber",
+      "displayName": "Beat Saber Integration",
+      "description": "Beat Saber map availability and download integration.",
+      "repo": "kuba2k2/spicetify-beat-saber",
+      "installName": "beatsaber",
+      "status": "active",
+      "resolver": {
+        "type": "latestReleaseAsset",
+        "assetRegex": "^beatsaber-dist-.*\\.zip$"
+      }
+    }
+  ]
+}
