@@ -487,8 +487,11 @@ function Invoke-SpicetifyMenuCommand {
     }
 
     Write-Info "Running: spicetify $($Arguments -join ' ')"
-    Invoke-Spicetify @Arguments
-    $code = $script:LastSpicetifyExitCode
+    $result = Invoke-SpicetifyWithOutput @Arguments
+    $code = $result.ExitCode
+    if (-not [string]::IsNullOrWhiteSpace($result.Output)) {
+        Write-Host $result.Output
+    }
     if ($code -eq 0) {
         Write-Ok $SuccessMessage
         $script:LastSpicetifyCommandSucceeded = $true
@@ -532,8 +535,11 @@ function Invoke-SafeSpicetifyBackupApply {
     }
 
     Write-Info 'Running: spicetify apply'
-    Invoke-Spicetify 'apply'
-    $code = $script:LastSpicetifyExitCode
+    $result = Invoke-SpicetifyWithOutput 'apply'
+    $code = $result.ExitCode
+    if (-not [string]::IsNullOrWhiteSpace($result.Output)) {
+        Write-Host $result.Output
+    }
     if ($code -eq 0) {
         Write-Ok 'Spicetify changes applied.'
         $script:LastApplySucceeded = $true
@@ -542,8 +548,11 @@ function Invoke-SafeSpicetifyBackupApply {
 
     Write-Warn "Apply exited with code $code. A usable backup may not exist yet."
     Write-Info 'Running fallback: spicetify backup apply'
-    Invoke-Spicetify 'backup' 'apply'
-    $code = $script:LastSpicetifyExitCode
+    $result = Invoke-SpicetifyWithOutput 'backup' 'apply'
+    $code = $result.ExitCode
+    if (-not [string]::IsNullOrWhiteSpace($result.Output)) {
+        Write-Host $result.Output
+    }
     if ($code -eq 0) {
         Write-Ok 'Spicetify backup was created and changes were applied.'
         $script:LastApplySucceeded = $true
@@ -698,9 +707,18 @@ function Install-Marketplace {
         Copy-Item -Path (Join-Path $distPath '*') -Destination $marketAppPath -Recurse -Force
 
         Write-Info 'Updating Spicetify Marketplace configuration...'
-        Invoke-Spicetify 'config' 'custom_apps' 'spicetify-marketplace-' '-q'
-        Invoke-Spicetify 'config' 'custom_apps' 'marketplace'
-        Invoke-Spicetify 'config' 'inject_css' '1' 'replace_colors' '1'
+        $result = Invoke-SpicetifyWithOutput 'config' 'custom_apps' 'spicetify-marketplace-' '-q'
+        if (-not [string]::IsNullOrWhiteSpace($result.Output)) {
+            Write-Host $result.Output
+        }
+        $result = Invoke-SpicetifyWithOutput 'config' 'custom_apps' 'marketplace'
+        if (-not [string]::IsNullOrWhiteSpace($result.Output)) {
+            Write-Host $result.Output
+        }
+        $result = Invoke-SpicetifyWithOutput 'config' 'inject_css' '1' 'replace_colors' '1'
+        if (-not [string]::IsNullOrWhiteSpace($result.Output)) {
+            Write-Host $result.Output
+        }
 
         $catalog = Get-Catalog
         Invoke-DownloadFile -Uri $catalog.official.marketplace.placeholderColorUrl -OutFile (Join-Path $marketThemePath 'color.ini')
@@ -711,7 +729,10 @@ function Install-Marketplace {
             $setTheme = Confirm-YesNo -Prompt "Current theme is '$currentTheme'. Replace it with Marketplace placeholder?" -Default $false
         }
         if ($setTheme) {
-            Invoke-Spicetify 'config' 'current_theme' 'marketplace'
+            $result = Invoke-SpicetifyWithOutput 'config' 'current_theme' 'marketplace'
+            if (-not [string]::IsNullOrWhiteSpace($result.Output)) {
+                Write-Host $result.Output
+            }
         }
 
         Request-SpicetifyBackupApply -Prompt 'Marketplace is installed. Apply it to Spotify now?'
@@ -864,7 +885,10 @@ function Remove-Spicetify {
     }
 
     if (Test-SpicetifyCommand) {
-        Invoke-Spicetify 'restore'
+        $result = Invoke-SpicetifyWithOutput 'restore'
+        if (-not [string]::IsNullOrWhiteSpace($result.Output)) {
+            Write-Host $result.Output
+        }
     }
     $installRoot = Join-Path $env:LOCALAPPDATA 'spicetify'
     Remove-TreeSafe -Path $installRoot -AllowedRoot $env:LOCALAPPDATA
@@ -969,7 +993,10 @@ function Install-CommunityApp {
         Copy-Item -Path (Join-Path $source '*') -Destination $target -Recurse -Force
 
         Write-Info "Adding $($resolved.InstallName) to Spicetify configuration..."
-        Invoke-Spicetify 'config' 'custom_apps' $resolved.InstallName
+        $result = Invoke-SpicetifyWithOutput 'config' 'custom_apps' $resolved.InstallName
+        if (-not [string]::IsNullOrWhiteSpace($result.Output)) {
+            Write-Host $result.Output
+        }
         Write-Ok "$($App.displayName) installed and configured."
         Request-ApplyAfterChange
     } finally {
@@ -998,7 +1025,10 @@ function Show-ExtensionsMenu {
             $selection = Read-Host 'Extension number'
             if ($selection -match '^\d+$' -and [int]$selection -ge 1 -and [int]$selection -le $extensions.Count) {
                 $name = $extensions[[int]$selection - 1]
-                Invoke-Spicetify 'config' 'extensions' $name
+                $result = Invoke-SpicetifyWithOutput 'config' 'extensions' $name
+                if (-not [string]::IsNullOrWhiteSpace($result.Output)) {
+                    Write-Host $result.Output
+                }
                 Write-Ok "Configured $name."
                 Request-ApplyAfterChange
             }
@@ -1009,14 +1039,20 @@ function Show-ExtensionsMenu {
             $selection = Read-Host 'Extension number to remove'
             if ($selection -match '^\d+$' -and [int]$selection -ge 1 -and [int]$selection -le $current.Count) {
                 $name = $current[[int]$selection - 1]
-                Invoke-Spicetify 'config' 'extensions' "$name-"
+                $result = Invoke-SpicetifyWithOutput 'config' 'extensions' "$name-"
+                if (-not [string]::IsNullOrWhiteSpace($result.Output)) {
+                    Write-Host $result.Output
+                }
                 Write-Ok "Removed $name from config."
                 Request-ApplyAfterChange
             }
             Wait-IfNeeded
         } elseif ($choice -eq '3') {
             foreach ($name in $current) {
-                Invoke-Spicetify 'config' 'extensions' "$name-"
+                $result = Invoke-SpicetifyWithOutput 'config' 'extensions' "$name-"
+                if (-not [string]::IsNullOrWhiteSpace($result.Output)) {
+                    Write-Host $result.Output
+                }
             }
             Write-Ok 'Extensions cleared from config.'
             Request-ApplyAfterChange
@@ -1048,7 +1084,10 @@ function Show-CustomAppsMenu {
             $selection = Read-Host 'App number'
             if ($selection -match '^\d+$' -and [int]$selection -ge 1 -and [int]$selection -le $apps.Count) {
                 $app = $apps[[int]$selection - 1]
-                Invoke-Spicetify 'config' 'custom_apps' $app.name
+                $result = Invoke-SpicetifyWithOutput 'config' 'custom_apps' $app.name
+                if (-not [string]::IsNullOrWhiteSpace($result.Output)) {
+                    Write-Host $result.Output
+                }
                 Write-Ok "Configured $($app.name)."
                 Request-ApplyAfterChange
             }
@@ -1070,7 +1109,10 @@ function Show-CustomAppsMenu {
             $selection = Read-Host 'App number to remove'
             if ($selection -match '^\d+$' -and [int]$selection -ge 1 -and [int]$selection -le $current.Count) {
                 $name = $current[[int]$selection - 1]
-                Invoke-Spicetify 'config' 'custom_apps' "$name-"
+                $result = Invoke-SpicetifyWithOutput 'config' 'custom_apps' "$name-"
+                if (-not [string]::IsNullOrWhiteSpace($result.Output)) {
+                    Write-Host $result.Output
+                }
                 Write-Ok "Removed $name from config."
                 Request-ApplyAfterChange
             }
@@ -1129,7 +1171,10 @@ function Show-ThemesMenu {
             continue
         }
         if ($choice -eq '3') {
-            Invoke-Spicetify 'config' 'current_theme' ''
+            $result = Invoke-SpicetifyWithOutput 'config' 'current_theme' ''
+            if (-not [string]::IsNullOrWhiteSpace($result.Output)) {
+                Write-Host $result.Output
+            }
             Request-ApplyAfterChange
             Wait-IfNeeded
             continue
@@ -1152,14 +1197,20 @@ function Show-ThemesMenu {
                 New-Item -ItemType Directory -Path $themeRoot -Force | Out-Null
                 Remove-TreeSafe -Path $target -AllowedRoot $themeRoot
                 Copy-Item -LiteralPath $theme.FullName -Destination $target -Recurse -Force
-                Invoke-Spicetify 'config' 'current_theme' $theme.Name
+                $result = Invoke-SpicetifyWithOutput 'config' 'current_theme' $theme.Name
+                if (-not [string]::IsNullOrWhiteSpace($result.Output)) {
+                    Write-Host $result.Output
+                }
 
                 $schemes = @(Get-ColorSchemes -ColorIni (Join-Path $target 'color.ini'))
                 if ($schemes.Count -gt 0) {
                     Write-Host "Color schemes: $($schemes -join ', ')"
                     $scheme = Read-Host 'Color scheme (blank to keep current/default)'
                     if (-not [string]::IsNullOrWhiteSpace($scheme)) {
-                        Invoke-Spicetify 'config' 'color_scheme' $scheme
+                        $result = Invoke-SpicetifyWithOutput 'config' 'color_scheme' $scheme
+                        if (-not [string]::IsNullOrWhiteSpace($result.Output)) {
+                            Write-Host $result.Output
+                        }
                     }
                 }
                 Write-Ok "Configured theme $($theme.Name)."
@@ -1200,8 +1251,15 @@ function Show-ConfigSettingsMenu {
         if ($selection -match '^\d+$' -and [int]$selection -ge 1 -and [int]$selection -le $toggles.Count) {
             $key = $toggles[[int]$selection - 1]
             $value = Read-Host "New value for $key"
-            Invoke-Spicetify 'config' $key $value
-            Write-Ok "Set $key."
+            $result = Invoke-SpicetifyWithOutput 'config' $key $value
+            if (-not [string]::IsNullOrWhiteSpace($result.Output)) {
+                Write-Host $result.Output
+            }
+            if ($result.ExitCode -eq 0) {
+                Write-Ok "Set $key."
+            } else {
+                Write-Warn "Failed to set $key."
+            }
             Request-ApplyAfterChange
             Wait-IfNeeded
         }
